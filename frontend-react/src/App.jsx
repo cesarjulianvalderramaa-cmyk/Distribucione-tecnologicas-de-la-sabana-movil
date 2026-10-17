@@ -1,7 +1,50 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = "http://127.0.0.1:5000/api/productos";
+const API_URL = import.meta.env.VITE_API_URL || "/api/productos";
+const AUTH_URL = API_URL.replace(/\/productos\/?$/, "/auth");
+
+const solicitarApi = async (url, opciones) => {
+  try {
+    return await fetch(url, opciones);
+  } catch (error) {
+    throw new Error(
+      "No se pudo conectar con Flask. Inicia la API con `python api.py` y vuelve a intentarlo.",
+      { cause: error }
+    );
+  }
+};
+
+const leerRespuesta = async (respuesta) => {
+  if ([502, 503, 504].includes(respuesta.status)) {
+    throw new Error(
+      "No se pudo conectar con Flask. Inicia la API con `python api.py` y vuelve a intentarlo."
+    );
+  }
+
+  let datos;
+
+  try {
+    datos = await respuesta.json();
+  } catch {
+    throw new Error(
+      `La API devolvió una respuesta no válida (HTTP ${respuesta.status}).`
+    );
+  }
+
+  if (!respuesta.ok) {
+    throw new Error(
+      datos.error || `La API respondió con HTTP ${respuesta.status}.`
+    );
+  }
+
+  return datos;
+};
+
+const obtenerProductos = async () => {
+  const respuesta = await solicitarApi(API_URL, { credentials: "include" });
+  return leerRespuesta(respuesta);
+};
 
 function App() {
   // ================================
@@ -9,6 +52,14 @@ function App() {
   // ================================
 
   const [productos, setProductos] = useState([]);
+  const [usuarioActual, setUsuarioActual] = useState(null);
+  const [comprobandoSesion, setComprobandoSesion] = useState(true);
+  const [usuarioAcceso, setUsuarioAcceso] = useState("");
+  const [contrasenaAcceso, setContrasenaAcceso] = useState("");
+  const [confirmarContrasena, setConfirmarContrasena] = useState("");
+  const [modoAcceso, setModoAcceso] = useState("login");
+  const [errorAcceso, setErrorAcceso] = useState("");
+  const [iniciandoSesion, setIniciandoSesion] = useState(false);
 
   const [formulario, setFormulario] = useState({
     nombre: "",
@@ -21,7 +72,9 @@ function App() {
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
-  const [carrito, setCarrito] = useState([]);
+  const [filtroStock, setFiltroStock] = useState("todos");
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
 
   // ================================
   // CARGAR PRODUCTOS DESDE LA API
@@ -29,25 +82,129 @@ function App() {
 
   const cargarProductos = async () => {
     try {
-      const respuesta = await fetch(API_URL);
-
-      if (!respuesta.ok) {
-        throw new Error("No se pudieron consultar los productos");
-      }
-
-      const datos = await respuesta.json();
-
-      setProductos(datos);
+      setProductos(await obtenerProductos());
       setError("");
     } catch (error) {
       console.error(error);
-      setError("No fue posible conectar con la API.");
+      setError(error.message || "No fue posible conectar con la API.");
+    } finally {
+      setCargando(false);
     }
   };
 
   useEffect(() => {
-    cargarProductos();
+    let activo = true;
+
+    const comprobarSesion = async () => {
+      try {
+        const respuesta = await solicitarApi(`${AUTH_URL}/me`, {
+          credentials: "include",
+        });
+        if (respuesta.status === 401) return;
+        const datos = await leerRespuesta(respuesta);
+        if (activo) setUsuarioActual(datos.usuario);
+      } catch (error) {
+        if (activo) {
+          console.error(error);
+          setErrorAcceso(error.message || "No fue posible verificar la sesión.");
+        }
+      } finally {
+        if (activo) setComprobandoSesion(false);
+      }
+    };
+
+    comprobarSesion();
+    return () => {
+      activo = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!usuarioActual) return undefined;
+
+    let activo = true;
+    const cargarInventario = async () => {
+      try {
+        setProductos(await obtenerProductos());
+        if (activo) setError("");
+      } catch (error) {
+        if (activo) {
+          console.error(error);
+          setError(error.message || "No fue posible cargar el inventario.");
+        }
+      } finally {
+        if (activo) setCargando(false);
+      }
+    };
+
+    cargarInventario();
+    return () => {
+      activo = false;
+    };
+  }, [usuarioActual]);
+
+  const manejarAcceso = async (e) => {
+    e.preventDefault();
+    setErrorAcceso("");
+
+    if (
+      modoAcceso === "registro" &&
+      contrasenaAcceso !== confirmarContrasena
+    ) {
+      setErrorAcceso("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setIniciandoSesion(true);
+
+    try {
+      const respuesta = await solicitarApi(
+        `${AUTH_URL}/${modoAcceso === "registro" ? "register" : "login"}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            usuario: usuarioAcceso,
+            contrasena: contrasenaAcceso,
+          }),
+        }
+      );
+      const datos = await leerRespuesta(respuesta);
+      setContrasenaAcceso("");
+      setConfirmarContrasena("");
+      setCargando(true);
+      if (modoAcceso === "registro") {
+        setMensaje("Cuenta creada correctamente. Bienvenido al inventario.");
+      }
+      setUsuarioActual(datos.usuario);
+    } catch (error) {
+      console.error(error);
+      setErrorAcceso(error.message || "No fue posible iniciar sesión.");
+    } finally {
+      setIniciandoSesion(false);
+    }
+  };
+
+  const manejarCierreSesion = async () => {
+    setError("");
+    try {
+      const respuesta = await solicitarApi(`${AUTH_URL}/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+      await leerRespuesta(respuesta);
+      setProductos([]);
+      setMensaje("");
+      setModoAcceso("login");
+      setContrasenaAcceso("");
+      setConfirmarContrasena("");
+      setUsuarioActual(null);
+    } catch (error) {
+      console.error(error);
+      setError(error.message || "No fue posible cerrar la sesión.");
+    }
+  };
 
   // ================================
   // CAMBIAR DATOS DEL FORMULARIO
@@ -92,35 +249,50 @@ function App() {
       return;
     }
 
-    if (Number(formulario.precio) <= 0) {
+    const precio = Number(formulario.precio);
+    const stock = Number(formulario.stock);
+    const idCategoria = Number(formulario.id_categoria);
+
+    if (!formulario.precio || !Number.isFinite(precio) || precio <= 0) {
       setError("El precio debe ser mayor que 0.");
       return;
     }
 
-    if (Number(formulario.stock) < 0) {
-      setError("El stock no puede ser negativo.");
+    if (
+      formulario.stock === "" ||
+      !Number.isInteger(stock) ||
+      stock < 0
+    ) {
+      setError("El stock debe ser un número entero igual o mayor que 0.");
       return;
     }
 
-    if (!formulario.id_categoria) {
-      setError("Debe ingresar una categoría.");
+    if (
+      !formulario.id_categoria ||
+      !Number.isInteger(idCategoria) ||
+      idCategoria <= 0
+    ) {
+      setError("Debe ingresar un ID de categoría válido.");
       return;
     }
 
     const datos = {
       nombre: formulario.nombre.trim(),
-      precio: Number(formulario.precio),
-      stock: Number(formulario.stock),
-      id_categoria: Number(formulario.id_categoria),
+      precio,
+      stock,
+      id_categoria: idCategoria,
     };
+
+    setGuardando(true);
 
     try {
       let respuesta;
 
       // ACTUALIZAR
       if (editando) {
-        respuesta = await fetch(`${API_URL}/${editando}`, {
+        respuesta = await solicitarApi(`${API_URL}/${editando}`, {
           method: "PUT",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -130,8 +302,9 @@ function App() {
 
       // CREAR
       else {
-        respuesta = await fetch(API_URL, {
+        respuesta = await solicitarApi(API_URL, {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -139,13 +312,7 @@ function App() {
         });
       }
 
-      const resultado = await respuesta.json();
-
-      if (!respuesta.ok) {
-        throw new Error(
-          resultado.error || "Error en la operación"
-        );
-      }
+      await leerRespuesta(respuesta);
 
       if (editando) {
         setMensaje("Producto actualizado correctamente.");
@@ -168,6 +335,8 @@ function App() {
     } catch (error) {
       console.error(error);
       setError(error.message);
+    } finally {
+      setGuardando(false);
     }
   };
 
@@ -208,22 +377,19 @@ function App() {
       return;
     }
 
+    setMensaje("");
+    setError("");
+
     try {
-      const respuesta = await fetch(
+      const respuesta = await solicitarApi(
         `${API_URL}/${id}`,
         {
           method: "DELETE",
+          credentials: "include",
         }
       );
 
-      const resultado = await respuesta.json();
-
-      if (!respuesta.ok) {
-        throw new Error(
-          resultado.error ||
-            "No se pudo eliminar el producto"
-        );
-      }
+      await leerRespuesta(respuesta);
 
       setMensaje(
         "Producto eliminado correctamente."
@@ -237,38 +403,41 @@ function App() {
   };
 
   // ================================
-  // AGREGAR AL CARRITO
-  // ================================
-
-  const agregarCarrito = (producto) => {
-    setCarrito((carritoActual) => [
-      ...carritoActual,
-      producto,
-    ]);
-
-    setMensaje(
-      `${producto.nombre} agregado al carrito.`
-    );
-  };
-
-  // ================================
   // BUSCADOR
   // ================================
 
   const productosFiltrados = productos.filter(
-    (producto) =>
-      producto.nombre
+    (producto) => {
+      const coincideBusqueda = `${producto.nombre} ${producto.id_categoria}`
         .toLowerCase()
-        .includes(busqueda.toLowerCase())
+        .includes(busqueda.trim().toLowerCase());
+      const coincideStock =
+        filtroStock === "todos" ||
+        (filtroStock === "disponibles" && Number(producto.stock) > 0) ||
+        (filtroStock === "agotados" && Number(producto.stock) === 0);
+
+      return coincideBusqueda && coincideStock;
+    }
   );
+
+  const unidadesInventario = productos.reduce(
+    (total, producto) => total + Number(producto.stock),
+    0
+  );
+  const productosAgotados = productos.filter(
+    (producto) => Number(producto.stock) === 0
+  ).length;
 
   // ================================
   // FORMATO DEL PRECIO
   // ================================
 
-  const formatoPrecio = (precio) => {
-    return Number(precio).toLocaleString("es-CO");
-  };
+  const formatoPrecio = (precio) =>
+    new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0,
+    }).format(Number(precio));
 
   // ================================
   // IMAGEN DEL PRODUCTO
@@ -328,6 +497,129 @@ function App() {
     return "📦";
   };
 
+  if (comprobandoSesion) {
+    return (
+      <main className="auth-shell">
+        <div className="auth-card auth-cargando" role="status">
+          <span className="auth-marca">DS</span>
+          <p>Verificando tu sesión...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!usuarioActual) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <div className="auth-identidad">
+            <span className="auth-marca">DS</span>
+            <div>
+              <strong>Distribuciones</strong>
+              <span>de la Sabana</span>
+            </div>
+          </div>
+
+          <p className="auth-etiqueta">SISTEMA DE INVENTARIO</p>
+          <h1>{modoAcceso === "registro" ? "Crear cuenta" : "Iniciar sesión"}</h1>
+          <p className="auth-descripcion">
+            {modoAcceso === "registro"
+              ? "Regístrate para acceder y administrar el inventario."
+              : "Ingresa tus credenciales para administrar el inventario."}
+          </p>
+
+          {errorAcceso && (
+            <div className="error auth-error" role="alert">
+              ⚠️ {errorAcceso}
+            </div>
+          )}
+
+          <form className="auth-formulario" onSubmit={manejarAcceso}>
+            <div className="campo">
+              <label htmlFor="usuario-acceso">Nombre de usuario</label>
+              <input
+                autoComplete="username"
+                id="usuario-acceso"
+                maxLength={50}
+                minLength={3}
+                name="usuario"
+                onChange={(e) => setUsuarioAcceso(e.target.value)}
+                pattern="[A-Za-z0-9._\-]+"
+                placeholder="Ej. cesar.sabana"
+                required
+                value={usuarioAcceso}
+              />
+              {modoAcceso === "registro" && (
+                <small>Usa de 3 a 50 letras, números, puntos, guiones o guion bajo.</small>
+              )}
+            </div>
+            <div className="campo">
+              <label htmlFor="contrasena-acceso">Contraseña</label>
+              <input
+                autoComplete={modoAcceso === "registro" ? "new-password" : "current-password"}
+                id="contrasena-acceso"
+                maxLength={128}
+                name="contrasena"
+                minLength={modoAcceso === "registro" ? 12 : undefined}
+                onChange={(e) => setContrasenaAcceso(e.target.value)}
+                placeholder={modoAcceso === "registro" ? "Mínimo 12 caracteres" : ""}
+                required
+                type="password"
+                value={contrasenaAcceso}
+              />
+            </div>
+            {modoAcceso === "registro" && (
+              <div className="campo">
+                <label htmlFor="confirmar-contrasena">Confirmar contraseña</label>
+                <input
+                  autoComplete="new-password"
+                  id="confirmar-contrasena"
+                  maxLength={128}
+                  minLength={12}
+                  name="confirmar-contrasena"
+                  onChange={(e) => setConfirmarContrasena(e.target.value)}
+                  required
+                  type="password"
+                  value={confirmarContrasena}
+                />
+              </div>
+            )}
+            <button
+              className="boton-principal auth-submit"
+              disabled={iniciandoSesion}
+              type="submit"
+            >
+              {iniciandoSesion
+                ? modoAcceso === "registro"
+                  ? "Creando cuenta..."
+                  : "Validando..."
+                : modoAcceso === "registro"
+                  ? "Crear cuenta"
+                  : "Ingresar"}
+            </button>
+          </form>
+          <p className="auth-ayuda">
+            {modoAcceso === "registro" ? "¿Ya tienes cuenta?" : "¿Aún no tienes cuenta?"}{" "}
+            <button
+              className="auth-cambiar-modo"
+              onClick={() => {
+                setModoAcceso((modoActual) =>
+                  modoActual === "registro" ? "login" : "registro"
+                );
+                setErrorAcceso("");
+                setContrasenaAcceso("");
+                setConfirmarContrasena("");
+              }}
+              type="button"
+            >
+              {modoAcceso === "registro" ? "Inicia sesión" : "Regístrate"}
+            </button>
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   // ================================
   // INTERFAZ
   // ================================
@@ -383,22 +675,22 @@ function App() {
           </button>
         </nav>
 
-        <button
-          className="carrito"
-          onClick={() => {
-            if (carrito.length === 0) {
-              setMensaje(
-                "El carrito está vacío."
-              );
-            } else {
-              setMensaje(
-                `Tienes ${carrito.length} producto(s) en el carrito.`
-              );
+        <div className="acciones-sesion">
+          <span className="saludo-usuario">Hola, {usuarioActual}</span>
+          <button
+            className="boton-nuevo-producto"
+            onClick={() =>
+              document
+                .getElementById("administracion")
+                ?.scrollIntoView({ behavior: "smooth" })
             }
-          }}
-        >
-          🛒 Carrito ({carrito.length})
-        </button>
+          >
+            + Nuevo producto
+          </button>
+          <button className="boton-cerrar-sesion" onClick={manejarCierreSesion}>
+            Cerrar sesión
+          </button>
+        </div>
 
       </header>
 
@@ -411,19 +703,14 @@ function App() {
         <div className="hero-texto">
 
           <p className="hero-etiqueta">
-            TECNOLOGÍA Y SOLUCIONES
+          SISTEMA DE INVENTARIO
           </p>
 
-          <h1>
-            Tecnología para
-            <br />
-            la Sabana
-          </h1>
+          <h1>Gestiona el inventario de la Sabana</h1>
 
           <p>
-            Encuentra computadores, accesorios,
-            periféricos y productos tecnológicos
-            para tus necesidades.
+            Administra el catálogo de productos de Distribuciones de la Sabana
+            desde un solo lugar.
           </p>
 
           <button
@@ -436,7 +723,7 @@ function App() {
                 })
             }
           >
-            Ver productos →
+            Ver inventario →
           </button>
 
         </div>
@@ -457,6 +744,30 @@ function App() {
 
       <main className="contenido">
 
+        <section className="resumen-inventario" aria-label="Resumen del inventario">
+          <article className="indicador">
+            <span className="indicador-icono">▦</span>
+            <div>
+              <p>Productos registrados</p>
+              <strong>{error && productos.length === 0 ? "—" : productos.length}</strong>
+            </div>
+          </article>
+          <article className="indicador">
+            <span className="indicador-icono indicador-verde">↗</span>
+            <div>
+              <p>Unidades disponibles</p>
+              <strong>{error && productos.length === 0 ? "—" : unidadesInventario}</strong>
+            </div>
+          </article>
+          <article className="indicador">
+            <span className="indicador-icono indicador-naranja">!</span>
+            <div>
+              <p>Productos agotados</p>
+              <strong>{error && productos.length === 0 ? "—" : productosAgotados}</strong>
+            </div>
+          </article>
+        </section>
+
         {/* TÍTULO */}
 
         <div className="encabezado-productos">
@@ -472,7 +783,9 @@ function App() {
           </div>
 
           <p className="contador-productos">
-            {productos.length} producto(s)
+            {error && productos.length === 0
+              ? "Inventario no disponible"
+              : `${productosFiltrados.length} de ${productos.length} producto(s)`}
           </p>
 
         </div>
@@ -483,12 +796,13 @@ function App() {
 
         <div className="contenedor-buscador">
 
-          <span>🔎</span>
+          <span aria-hidden="true">⌕</span>
 
           <input
             className="buscador"
             type="text"
-            placeholder="Buscar productos..."
+            aria-label="Buscar productos por nombre o categoría"
+            placeholder="Buscar por nombre o categoría..."
             value={busqueda}
             onChange={(e) =>
               setBusqueda(e.target.value)
@@ -507,54 +821,33 @@ function App() {
         </div>
 
         {/* =================================
-            CATEGORÍAS
+            FILTRAR POR STOCK
         ================================= */}
 
         <div className="categorias">
 
           <button
-            className="categoria activa"
-            onClick={() =>
-              setBusqueda("")
-            }
+            className={`categoria ${filtroStock === "todos" ? "activa" : ""}`}
+            aria-pressed={filtroStock === "todos"}
+            onClick={() => setFiltroStock("todos")}
           >
             Todos
           </button>
 
           <button
-            className="categoria"
-            onClick={() =>
-              setBusqueda("mouse")
-            }
+            className={`categoria ${filtroStock === "disponibles" ? "activa" : ""}`}
+            aria-pressed={filtroStock === "disponibles"}
+            onClick={() => setFiltroStock("disponibles")}
           >
-            🖱️ Accesorios
+            Disponibles
           </button>
 
           <button
-            className="categoria"
-            onClick={() =>
-              setBusqueda("teclado")
-            }
+            className={`categoria ${filtroStock === "agotados" ? "activa" : ""}`}
+            aria-pressed={filtroStock === "agotados"}
+            onClick={() => setFiltroStock("agotados")}
           >
-            ⌨️ Periféricos
-          </button>
-
-          <button
-            className="categoria"
-            onClick={() =>
-              setBusqueda("monitor")
-            }
-          >
-            🖥️ Monitores
-          </button>
-
-          <button
-            className="categoria"
-            onClick={() =>
-              setBusqueda("laptop")
-            }
-          >
-            💻 Computadores
+            Agotados
           </button>
 
         </div>
@@ -564,13 +857,13 @@ function App() {
         ================================= */}
 
         {mensaje && (
-          <div className="mensaje">
+          <div className="mensaje" role="status" aria-live="polite">
             ✓ {mensaje}
           </div>
         )}
 
         {error && (
-          <div className="error">
+          <div className="error" role="alert">
             ⚠️ {error}
           </div>
         )}
@@ -584,26 +877,42 @@ function App() {
           className="productos"
         >
 
-          {productosFiltrados.length === 0 ? (
+          {cargando ? (
+            <div className="sin-productos" role="status">
+              <div>⏳</div>
+              <h3>Cargando inventario...</h3>
+              <p>Estamos consultando los productos registrados.</p>
+            </div>
+          ) : productosFiltrados.length === 0 ? (
 
             <div className="sin-productos">
-              <div>📦</div>
+              <div>{error ? "⚠️" : "📦"}</div>
 
               <h3>
-                No encontramos productos
+                {error
+                  ? "No fue posible cargar el inventario"
+                  : "No encontramos productos"}
               </h3>
 
               <p>
-                Intenta con otro término de búsqueda.
+                {error
+                  ? "Verifica que la API de Flask esté activa e inténtalo de nuevo."
+                  : "Intenta con otro término de búsqueda o limpia los filtros."}
               </p>
 
               <button
                 className="boton-principal"
-                onClick={() =>
-                  setBusqueda("")
-                }
+                onClick={() => {
+                  if (error) {
+                    setCargando(true);
+                    cargarProductos();
+                  } else {
+                    setBusqueda("");
+                    setFiltroStock("todos");
+                  }
+                }}
               >
-                Ver todos los productos
+                {error ? "Reintentar" : "Limpiar filtros"}
               </button>
             </div>
 
@@ -655,7 +964,7 @@ function App() {
                     <div className="producto-info">
 
                       <div className="producto-categoria">
-                        Tecnología
+                        Categoría #{producto.id_categoria}
                       </div>
 
                       <h3>
@@ -663,31 +972,17 @@ function App() {
                       </h3>
 
                       <div className="precio">
-                        $
                         {formatoPrecio(
                           producto.precio
                         )}
                       </div>
 
-                      <div className="stock">
-                        <span className="punto-stock">
-                          ●
-                        </span>
-
-                        Stock disponible:{" "}
-                        {producto.stock}
+                      <div className={`stock ${Number(producto.stock) === 0 ? "stock-agotado" : ""}`}>
+                        <span className="punto-stock">●</span>
+                        {Number(producto.stock) === 0
+                          ? "Agotado"
+                          : `${producto.stock} unidades disponibles`}
                       </div>
-
-                      <button
-                        className="boton-producto"
-                        onClick={() =>
-                          agregarCarrito(
-                            producto
-                          )
-                        }
-                      >
-                        🛒 Agregar al carrito
-                      </button>
 
                       {/* ACCIONES ADMINISTRATIVAS */}
 
@@ -769,14 +1064,17 @@ function App() {
 
             <div className="campo">
 
-              <label>
+              <label htmlFor="nombre">
                 Nombre del producto
               </label>
 
               <input
                 type="text"
+                id="nombre"
                 name="nombre"
                 placeholder="Ej. Mouse Logitech"
+                maxLength={100}
+                required
                 value={
                   formulario.nombre
                 }
@@ -789,14 +1087,18 @@ function App() {
 
             <div className="campo">
 
-              <label>
+              <label htmlFor="precio">
                 Precio
               </label>
 
               <input
                 type="number"
+                id="precio"
                 name="precio"
                 placeholder="Ej. 85000"
+                min="1"
+                step="1"
+                required
                 value={
                   formulario.precio
                 }
@@ -809,14 +1111,18 @@ function App() {
 
             <div className="campo">
 
-              <label>
+              <label htmlFor="stock">
                 Stock
               </label>
 
               <input
                 type="number"
+                id="stock"
                 name="stock"
                 placeholder="Ej. 20"
+                min="0"
+                step="1"
+                required
                 value={
                   formulario.stock
                 }
@@ -829,14 +1135,18 @@ function App() {
 
             <div className="campo">
 
-              <label>
+              <label htmlFor="id_categoria">
                 ID de categoría
               </label>
 
               <input
                 type="number"
+                id="id_categoria"
                 name="id_categoria"
                 placeholder="Ej. 1"
+                min="1"
+                step="1"
+                required
                 value={
                   formulario.id_categoria
                 }
@@ -844,6 +1154,7 @@ function App() {
                   manejarCambio
                 }
               />
+              <small>Ingresa el ID de una categoría existente.</small>
 
             </div>
 
@@ -852,8 +1163,11 @@ function App() {
               <button
                 className="boton-principal"
                 type="submit"
+                disabled={guardando}
               >
-                {editando
+                {guardando
+                  ? "Guardando..."
+                  : editando
                   ? "✓ Actualizar producto"
                   : "+ Crear producto"}
               </button>

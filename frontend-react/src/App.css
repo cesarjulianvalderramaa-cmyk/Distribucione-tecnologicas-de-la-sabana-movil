@@ -28,6 +28,139 @@ button {
 }
 
 /* =========================================
+   INICIO DE SESIÓN
+========================================= */
+
+.auth-shell {
+  min-height: 100vh;
+  padding: 28px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(52, 120, 255, 0.12), transparent 30%),
+    #f5f7fb;
+}
+
+.auth-card {
+  width: min(100%, 440px);
+  padding: 40px;
+  background: white;
+  border: 1px solid #e4e8ef;
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.1);
+}
+
+.auth-identidad {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 38px;
+}
+
+.auth-marca {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #0645c5;
+  color: white;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.auth-identidad div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auth-identidad strong {
+  color: #172033;
+  font-size: 16px;
+}
+
+.auth-identidad div span {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.auth-etiqueta {
+  margin-bottom: 8px;
+  color: #0645c5;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.auth-card h1 {
+  margin: 0 0 8px;
+  color: #172033;
+  font-size: 30px;
+  letter-spacing: -0.6px;
+}
+
+.auth-descripcion {
+  margin-bottom: 26px;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.auth-formulario {
+  display: grid;
+  gap: 18px;
+}
+
+.auth-formulario input {
+  min-height: 46px;
+}
+
+.auth-formulario .campo small {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.auth-ayuda {
+  margin-top: 22px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.auth-cambiar-modo {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #0645c5;
+  font-size: inherit;
+  font-weight: 700;
+}
+
+.auth-cambiar-modo:hover {
+  text-decoration: underline;
+}
+
+.auth-error {
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.auth-cargando {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #596273;
+}
+
+/* =========================================
    TIENDA
 ========================================= */
 
@@ -88,7 +221,7 @@ button {
   color: #0645c5;
 }
 
-.carrito {
+.boton-nuevo-producto {
   border: none;
   background: #0645c5;
   color: white;
@@ -101,9 +234,38 @@ button {
   transition: 0.2s;
 }
 
-.carrito:hover {
+.boton-nuevo-producto:hover {
   background: #053aa5;
   transform: translateY(-1px);
+}
+
+.acciones-sesion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.saludo-usuario {
+  color: #596273;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.boton-cerrar-sesion {
+  padding: 10px 13px;
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  background: white;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+  transition: 0.2s;
+}
+
+.boton-cerrar-sesion:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 /* =========================================
@@ -242,6 +404,64 @@ button {
   max-width: 1400px;
 
   margin: 0 auto 70px;
+}
+
+/* =========================================
+   RESUMEN DEL INVENTARIO
+========================================= */
+
+.resumen-inventario {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: -20px 0 55px;
+}
+
+.indicador {
+  min-height: 112px;
+  padding: 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: white;
+  border: 1px solid #e4e8ef;
+  border-radius: 16px;
+  box-shadow: 0 5px 20px rgba(15, 23, 42, 0.04);
+}
+
+.indicador-icono {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: #eef4ff;
+  color: #0645c5;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.indicador-verde {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.indicador-naranja {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.indicador p {
+  margin-bottom: 4px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.indicador strong {
+  color: #172033;
+  font-size: 28px;
+  line-height: 1.1;
 }
 
 /* =========================================
@@ -609,32 +829,8 @@ button {
   margin-right: 5px;
 }
 
-/* =========================================
-   BOTÓN AGREGAR
-========================================= */
-
-.boton-producto {
-  width: 100%;
-
-  padding: 12px;
-
-  border: none;
-
-  border-radius: 9px;
-
-  background: #0645c5;
-
-  color: white;
-
-  font-weight: 700;
-
-  transition: 0.2s;
-}
-
-.boton-producto:hover {
-  background: #053aa5;
-
-  transform: translateY(-1px);
+.stock-agotado .punto-stock {
+  color: #dc2626;
 }
 
 /* =========================================
@@ -826,6 +1022,11 @@ button {
     0 0 0 3px rgba(6, 69, 197, 0.08);
 }
 
+.campo small {
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .botones-formulario {
   grid-column: 1 / -1;
 
@@ -870,6 +1071,12 @@ button {
   color: #4b5563;
 
   font-weight: 700;
+}
+
+.boton-principal:disabled {
+  cursor: wait;
+  opacity: 0.7;
+  transform: none;
 }
 
 /* =========================================
@@ -939,7 +1146,17 @@ button {
 @media (max-width: 850px) {
 
   .encabezado {
+    flex-wrap: wrap;
+    justify-content: center;
     padding: 15px 4%;
+  }
+
+  .acciones-sesion {
+    gap: 8px;
+  }
+
+  .saludo-usuario {
+    display: none;
   }
 
   .menu {
@@ -960,6 +1177,25 @@ button {
 
   .contenido {
     width: 92%;
+  }
+
+  .resumen-inventario {
+    gap: 12px;
+  }
+
+  .indicador {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .indicador-icono {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .indicador strong {
+    font-size: 24px;
   }
 
   .productos {
@@ -1008,8 +1244,12 @@ button {
     justify-content: center;
   }
 
-  .carrito {
+  .boton-nuevo-producto {
     font-size: 13px;
+  }
+
+  .auth-card {
+    padding: 28px 22px;
   }
 
   .hero {
@@ -1030,6 +1270,12 @@ button {
 
   .contenido {
     width: 94%;
+  }
+
+  .resumen-inventario {
+    grid-template-columns: 1fr;
+    margin-top: -30px;
+    margin-bottom: 40px;
   }
 
   .encabezado-productos {
