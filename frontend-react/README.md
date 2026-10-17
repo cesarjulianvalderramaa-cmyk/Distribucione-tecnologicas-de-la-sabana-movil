@@ -1,16 +1,19 @@
-# Distribuciones de la Sabana — Inventario
+# Distribuciones Tecnológicas de la Sabana — Inventario
 
 Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está construido con React y Vite; la API está desarrollada con Flask y consulta MySQL.
 
 ## Funcionalidades
 
-- Consulta y búsqueda de productos por nombre o ID de categoría.
-- Filtros para ver todos los productos, los disponibles o los agotados.
-- Resumen del inventario: productos registrados, unidades disponibles y productos agotados.
+- Consulta y búsqueda de productos por nombre o código (ID del producto).
+- Filtros por categoría y disponibilidad: todos, disponibles, agotados o existencias bajas.
+- Avisos de stock bajo para productos con 5 unidades o menos, sin contar los agotados.
+- Resumen del inventario: productos registrados, unidades disponibles, productos agotados y existencias bajas.
 - Crear, editar y eliminar productos con validaciones y confirmación de borrado.
+- Descargar un reporte básico del inventario en formato CSV.
 - Inicio de sesión y registro de cuentas; la API valida la sesión antes de permitir cualquier operación del inventario.
+- Modo de demostración opcional con productos ficticios claramente identificados; los cambios se conservan solo en memoria y nunca se envían a Flask/MySQL.
 - Estados de carga, mensajes de resultado y avisos cuando no se puede conectar con la API.
-- Diseño adaptable a computadores, tabletas y celulares.
+- Diseño adaptable a computadores, tabletas y celulares, con navegación compacta en pantallas pequeñas.
 
 ## Requisitos
 
@@ -75,10 +78,13 @@ Con MySQL y Flask activos, abre la aplicación y comprueba:
 3. Que el registro cree una cuenta y permita entrar; prueba también un usuario duplicado y contraseñas que no coinciden.
 4. Que cerrar sesión vuelva a la pantalla de acceso y bloquee las operaciones del inventario.
 5. Que el resumen y el catálogo correspondan con los productos de la base de datos.
-6. La búsqueda y los filtros de productos disponibles y agotados.
-7. La creación de un producto usando un ID de categoría existente.
-8. La edición del producto y la actualización de su precio o stock.
-9. La cancelación y confirmación al eliminar un producto.
-10. El diseño en una ventana de escritorio y en una ventana angosta de celular.
+6. La búsqueda por nombre o código, el filtro por categoría y los filtros de disponibilidad.
+7. Que el indicador de existencias bajas incluya productos con 1 a 5 unidades y no cuente productos agotados.
+8. La descarga del reporte CSV con los productos del inventario.
+9. La creación de un producto usando un ID de categoría existente.
+10. La edición del producto y la actualización de su precio o stock.
+11. La cancelación y confirmación al eliminar un producto.
+12. El modo de demostración: debe mostrar la etiqueta de datos ficticios y permitir CRUD local sin modificar el backend.
+13. El diseño y menú en una ventana de escritorio y en una ventana angosta de celular.
 
 La gestión de ventas y el descuento automático de stock no hacen parte de esta versión.

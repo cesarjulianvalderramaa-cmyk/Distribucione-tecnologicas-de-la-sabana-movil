@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import InventorySummary from "./components/InventorySummary.jsx";
+import ProductCard from "./components/ProductCard.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api/productos";
 const AUTH_URL = API_URL.replace(/\/productos\/?$/, "/auth");
+const UMBRAL_STOCK_BAJO = 5;
+const PRODUCTOS_DEMO = [
+  { id_producto: 1001, nombre: "Mouse inalámbrico de oficina", precio: 45000, stock: 2, id_categoria: 1 },
+  { id_producto: 1002, nombre: "Teclado mecánico RGB", precio: 185000, stock: 8, id_categoria: 1 },
+  { id_producto: 1003, nombre: "Monitor LED 24 pulgadas", precio: 620000, stock: 0, id_categoria: 2 },
+  { id_producto: 1004, nombre: "Laptop empresarial", precio: 2450000, stock: 12, id_categoria: 2 },
+];
 
 const solicitarApi = async (url, opciones) => {
   try {
@@ -53,6 +62,7 @@ function App() {
 
   const [productos, setProductos] = useState([]);
   const [usuarioActual, setUsuarioActual] = useState(null);
+  const [modoDemo, setModoDemo] = useState(false);
   const [comprobandoSesion, setComprobandoSesion] = useState(true);
   const [usuarioAcceso, setUsuarioAcceso] = useState("");
   const [contrasenaAcceso, setContrasenaAcceso] = useState("");
@@ -73,6 +83,8 @@ function App() {
   const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [filtroStock, setFiltroStock] = useState("todos");
+  const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
@@ -120,13 +132,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!usuarioActual) return undefined;
+    if (!usuarioActual || modoDemo) return undefined;
 
     let activo = true;
     const cargarInventario = async () => {
       try {
-        setProductos(await obtenerProductos());
-        if (activo) setError("");
+        const productosCargados = await obtenerProductos();
+        if (activo) {
+          setProductos(productosCargados);
+          setError("");
+        }
       } catch (error) {
         if (activo) {
           console.error(error);
@@ -141,7 +156,17 @@ function App() {
     return () => {
       activo = false;
     };
-  }, [usuarioActual]);
+  }, [usuarioActual, modoDemo]);
+
+  const iniciarDemostracion = () => {
+    setProductos(PRODUCTOS_DEMO.map((producto) => ({ ...producto })));
+    setUsuarioActual(null);
+    setModoDemo(true);
+    setCargando(false);
+    setError("");
+    setMensaje("");
+    limpiarFormulario();
+  };
 
   const manejarAcceso = async (e) => {
     e.preventDefault();
@@ -187,6 +212,16 @@ function App() {
   };
 
   const manejarCierreSesion = async () => {
+    if (modoDemo) {
+      setProductos([]);
+      setModoDemo(false);
+      setCargando(true);
+      setMensaje("");
+      setError("");
+      setModoAcceso("login");
+      return;
+    }
+
     setError("");
     try {
       const respuesta = await solicitarApi(`${AUTH_URL}/logout`, {
@@ -286,43 +321,55 @@ function App() {
     setGuardando(true);
 
     try {
-      let respuesta;
-
-      // ACTUALIZAR
-      if (editando) {
-        respuesta = await solicitarApi(`${API_URL}/${editando}`, {
-          method: "PUT",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(datos),
-        });
-      }
-
-      // CREAR
-      else {
-        respuesta = await solicitarApi(API_URL, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(datos),
-        });
-      }
-
-      await leerRespuesta(respuesta);
-
-      if (editando) {
-        setMensaje("Producto actualizado correctamente.");
+      if (modoDemo) {
+        if (editando) {
+          setProductos((actuales) =>
+            actuales.map((producto) =>
+              producto.id_producto === editando
+                ? { ...producto, ...datos }
+                : producto
+            )
+          );
+        } else {
+          const idProducto = Math.max(
+            ...productos.map((producto) => producto.id_producto),
+            1000
+          ) + 1;
+          setProductos((actuales) => [
+            ...actuales,
+            { id_producto: idProducto, ...datos },
+          ]);
+        }
       } else {
-        setMensaje("Producto creado correctamente.");
+        const respuesta = await solicitarApi(
+          editando ? `${API_URL}/${editando}` : API_URL,
+          {
+            method: editando ? "PUT" : "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(datos),
+          }
+        );
+        await leerRespuesta(respuesta);
+      }
+
+      if (editando) {
+        setMensaje(
+          modoDemo
+            ? "Producto actualizado en la demostración. No se guardó en la base de datos."
+            : "Producto actualizado correctamente."
+        );
+      } else {
+        setMensaje(
+          modoDemo
+            ? "Producto creado en la demostración. No se guardó en la base de datos."
+            : "Producto creado correctamente."
+        );
       }
 
       limpiarFormulario();
 
-      await cargarProductos();
+      if (!modoDemo) await cargarProductos();
 
       // Llevar al usuario al catálogo
       setTimeout(() => {
@@ -381,21 +428,20 @@ function App() {
     setError("");
 
     try {
-      const respuesta = await solicitarApi(
-        `${API_URL}/${id}`,
-        {
+      if (modoDemo) {
+        setProductos((actuales) =>
+          actuales.filter((producto) => producto.id_producto !== id)
+        );
+        setMensaje("Producto eliminado de la demostración. No se modificó la base de datos.");
+      } else {
+        const respuesta = await solicitarApi(`${API_URL}/${id}`, {
           method: "DELETE",
           credentials: "include",
-        }
-      );
-
-      await leerRespuesta(respuesta);
-
-      setMensaje(
-        "Producto eliminado correctamente."
-      );
-
-      await cargarProductos();
+        });
+        await leerRespuesta(respuesta);
+        setMensaje("Producto eliminado correctamente.");
+        await cargarProductos();
+      }
     } catch (error) {
       console.error(error);
       setError(error.message);
@@ -408,24 +454,38 @@ function App() {
 
   const productosFiltrados = productos.filter(
     (producto) => {
-      const coincideBusqueda = `${producto.nombre} ${producto.id_categoria}`
+      const coincideBusqueda = `${producto.nombre} ${producto.id_producto} ${producto.id_categoria}`
         .toLowerCase()
         .includes(busqueda.trim().toLowerCase());
       const coincideStock =
         filtroStock === "todos" ||
         (filtroStock === "disponibles" && Number(producto.stock) > 0) ||
-        (filtroStock === "agotados" && Number(producto.stock) === 0);
+        (filtroStock === "agotados" && Number(producto.stock) === 0) ||
+        (filtroStock === "bajos" &&
+          Number(producto.stock) > 0 &&
+          Number(producto.stock) <= UMBRAL_STOCK_BAJO);
+      const coincideCategoria =
+        filtroCategoria === "todas" ||
+        Number(producto.id_categoria) === Number(filtroCategoria);
 
-      return coincideBusqueda && coincideStock;
+      return coincideBusqueda && coincideStock && coincideCategoria;
     }
   );
 
+  const categorias = [...new Set(productos.map((producto) => Number(producto.id_categoria)))]
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
   const unidadesInventario = productos.reduce(
     (total, producto) => total + Number(producto.stock),
     0
   );
   const productosAgotados = productos.filter(
     (producto) => Number(producto.stock) === 0
+  ).length;
+  const productosStockBajo = productos.filter(
+    (producto) =>
+      Number(producto.stock) > 0 &&
+      Number(producto.stock) <= UMBRAL_STOCK_BAJO
   ).length;
 
   // ================================
@@ -439,62 +499,34 @@ function App() {
       maximumFractionDigits: 0,
     }).format(Number(precio));
 
-  // ================================
-  // IMAGEN DEL PRODUCTO
-  // ================================
-
-  const obtenerImagen = (nombre) => {
-    const nombreProducto =
-      nombre.toLowerCase();
-
-    
-     if (nombreProducto.includes("mouse gamer")) {
-      return "/images/mousegamer.jpg";
-    } 
-    if (nombreProducto.includes("mouse")) {
-      return "/images/mouse.jpg";
-    }
-
-    if (nombreProducto.includes("teclado")) {
-      return "/images/teclado.jpg";
-    }
-
-    if (nombreProducto.includes("monitor")) {
-      return "/images/monitor.jpg";
-    }
-
-    if (nombreProducto.includes("laptop")) {
-      return "/images/laptop.jpg";
-    }
-
-    return null;
-  };
-
-  // ================================
-  // ICONO DEL PRODUCTO
-  // ================================
-
-  const obtenerIcono = (nombre) => {
-    const nombreProducto =
-      nombre.toLowerCase();
-
-    if (nombreProducto.includes("mouse")) {
-      return "🖱️";
-    }
-
-    if (nombreProducto.includes("teclado")) {
-      return "⌨️";
-    }
-
-    if (nombreProducto.includes("monitor")) {
-      return "🖥️";
-    }
-
-    if (nombreProducto.includes("laptop")) {
-      return "💻";
-    }
-
-    return "📦";
+  const descargarReporte = () => {
+    const escaparCsv = (valor) => {
+      const texto = String(valor);
+      const seguro = /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
+      return `"${seguro.replaceAll('"', '""')}"`;
+    };
+    const filas = [
+      ["Código", "Producto", "Precio COP", "Existencias", "ID categoría"],
+      ...productos.map((producto) => [
+        producto.id_producto,
+        producto.nombre,
+        producto.precio,
+        producto.stock,
+        producto.id_categoria,
+      ]),
+    ];
+    const contenido = `\uFEFF${filas.map((fila) => fila.map(escaparCsv).join(";")).join("\r\n")}`;
+    const archivo = new Blob([contenido], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(archivo);
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = modoDemo
+      ? "reporte-inventario-demostracion-datos-ficticios.csv"
+      : "reporte-inventario.csv";
+    document.body.append(enlace);
+    enlace.click();
+    enlace.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   if (comprobandoSesion) {
@@ -508,7 +540,7 @@ function App() {
     );
   }
 
-  if (!usuarioActual) {
+  if (!usuarioActual && !modoDemo) {
     return (
       <main className="auth-shell">
         <section className="auth-card">
@@ -516,7 +548,7 @@ function App() {
             <span className="auth-marca">DS</span>
             <div>
               <strong>Distribuciones</strong>
-              <span>de la Sabana</span>
+              <span>Tecnológicas de la Sabana</span>
             </div>
           </div>
 
@@ -615,6 +647,19 @@ function App() {
               {modoAcceso === "registro" ? "Inicia sesión" : "Regístrate"}
             </button>
           </p>
+          {modoAcceso === "login" && (
+            <div className="demo-acceso">
+              <p>¿Solo quieres explorar la interfaz?</p>
+              <button
+                className="boton-demostracion"
+                onClick={iniciarDemostracion}
+                type="button"
+              >
+                Probar demostración con datos ficticios
+              </button>
+              <small>Los cambios se mantienen solo mientras esta pestaña está abierta y no se guardan en MySQL.</small>
+            </div>
+          )}
         </section>
       </main>
     );
@@ -633,52 +678,80 @@ function App() {
 
       <header className="encabezado">
 
-        <div className="logo">
-          Distribuciones{" "}
-          <span>de la Sabana</span>
+        <div className="logo marca-empresa">
+          <span className="marca-iniciales" aria-hidden="true">DS</span>
+          <span className="marca-nombre">
+            Distribuciones
+            <strong>Tecnológicas de la Sabana</strong>
+          </span>
         </div>
 
-        <nav className="menu">
+        <button
+          aria-expanded={menuMovilAbierto}
+          aria-controls="navegacion-principal"
+          aria-label={menuMovilAbierto ? "Cerrar menú" : "Abrir menú"}
+          className="boton-menu-movil"
+          onClick={() => setMenuMovilAbierto((abierto) => !abierto)}
+          type="button"
+        >
+          <span aria-hidden="true">{menuMovilAbierto ? "✕" : "☰"}</span>
+          <span>Menú</span>
+        </button>
+
+        <nav
+          aria-label="Navegación principal"
+          className={`menu ${menuMovilAbierto ? "menu-abierto" : ""}`}
+          id="navegacion-principal"
+        >
           <button
-            onClick={() =>
+            onClick={() => {
               window.scrollTo({
                 top: 0,
                 behavior: "smooth",
-              })
-            }
+              });
+              setMenuMovilAbierto(false);
+            }}
+            type="button"
           >
             Inicio
           </button>
 
           <button
-            onClick={() =>
+            onClick={() => {
               document
                 .getElementById("productos")
                 ?.scrollIntoView({
                   behavior: "smooth",
-                })
-            }
+                });
+              setMenuMovilAbierto(false);
+            }}
+            type="button"
           >
             Productos
           </button>
 
           <button
-            onClick={() =>
+            onClick={() => {
               document
                 .getElementById("administracion")
                 ?.scrollIntoView({
                   behavior: "smooth",
-                })
-            }
+                });
+              setMenuMovilAbierto(false);
+            }}
+            type="button"
           >
             Administración
           </button>
         </nav>
 
         <div className="acciones-sesion">
-          <span className="saludo-usuario">Hola, {usuarioActual}</span>
+          <span className="saludo-usuario">
+            {modoDemo ? "Modo de demostración" : `Hola, ${usuarioActual}`}
+          </span>
           <button
             className="boton-nuevo-producto"
+            type="button"
             onClick={() =>
               document
                 .getElementById("administracion")
@@ -687,8 +760,8 @@ function App() {
           >
             + Nuevo producto
           </button>
-          <button className="boton-cerrar-sesion" onClick={manejarCierreSesion}>
-            Cerrar sesión
+          <button className="boton-cerrar-sesion" onClick={manejarCierreSesion} type="button">
+            {modoDemo ? "Salir de demostración" : "Cerrar sesión"}
           </button>
         </div>
 
@@ -709,7 +782,7 @@ function App() {
           <h1>Gestiona el inventario de la Sabana</h1>
 
           <p>
-            Administra el catálogo de productos de Distribuciones de la Sabana
+            Administra el catálogo de productos de Distribuciones Tecnológicas de la Sabana
             desde un solo lugar.
           </p>
 
@@ -744,29 +817,21 @@ function App() {
 
       <main className="contenido">
 
-        <section className="resumen-inventario" aria-label="Resumen del inventario">
-          <article className="indicador">
-            <span className="indicador-icono">▦</span>
-            <div>
-              <p>Productos registrados</p>
-              <strong>{error && productos.length === 0 ? "—" : productos.length}</strong>
-            </div>
-          </article>
-          <article className="indicador">
-            <span className="indicador-icono indicador-verde">↗</span>
-            <div>
-              <p>Unidades disponibles</p>
-              <strong>{error && productos.length === 0 ? "—" : unidadesInventario}</strong>
-            </div>
-          </article>
-          <article className="indicador">
-            <span className="indicador-icono indicador-naranja">!</span>
-            <div>
-              <p>Productos agotados</p>
-              <strong>{error && productos.length === 0 ? "—" : productosAgotados}</strong>
-            </div>
-          </article>
-        </section>
+        {modoDemo && (
+          <div className="banner-demostracion" role="status">
+            <strong>MODO DEMOSTRACIÓN · DATOS FICTICIOS</strong>
+            <span>Los registros y cambios de esta sesión no se envían ni se guardan en el backend.</span>
+          </div>
+        )}
+
+        <InventorySummary
+          totalProductos={productos.length}
+          unidadesInventario={unidadesInventario}
+          productosAgotados={productosAgotados}
+          productosStockBajo={productosStockBajo}
+          umbralStockBajo={UMBRAL_STOCK_BAJO}
+          inventarioDisponible={modoDemo || !(error && productos.length === 0)}
+        />
 
         {/* TÍTULO */}
 
@@ -780,6 +845,14 @@ function App() {
             <h2 className="titulo-seccion">
               Nuestros productos
             </h2>
+            <button
+              className="boton-reporte"
+              disabled={productos.length === 0}
+              onClick={descargarReporte}
+              type="button"
+            >
+              Descargar reporte CSV
+            </button>
           </div>
 
           <p className="contador-productos">
@@ -801,8 +874,8 @@ function App() {
           <input
             className="buscador"
             type="text"
-            aria-label="Buscar productos por nombre o categoría"
-            placeholder="Buscar por nombre o categoría..."
+            aria-label="Buscar productos por nombre o código"
+            placeholder="Buscar por nombre o código..."
             value={busqueda}
             onChange={(e) =>
               setBusqueda(e.target.value)
@@ -824,7 +897,8 @@ function App() {
             FILTRAR POR STOCK
         ================================= */}
 
-        <div className="categorias">
+        <div className="filtros-inventario">
+          <div className="categorias" aria-label="Filtrar por disponibilidad">
 
           <button
             className={`categoria ${filtroStock === "todos" ? "activa" : ""}`}
@@ -850,6 +924,32 @@ function App() {
             Agotados
           </button>
 
+          <button
+            className={`categoria ${filtroStock === "bajos" ? "activa" : ""}`}
+            aria-pressed={filtroStock === "bajos"}
+            onClick={() => setFiltroStock("bajos")}
+            type="button"
+          >
+            Existencias bajas
+          </button>
+
+          </div>
+
+          <label className="filtro-categoria">
+            <span>Categoría</span>
+            <select
+              aria-label="Filtrar por categoría"
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+              value={filtroCategoria}
+            >
+              <option value="todas">Todas las categorías</option>
+              {categorias.map((idCategoria) => (
+                <option key={idCategoria} value={idCategoria}>
+                  Categoría #{idCategoria}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {/* =================================
@@ -909,6 +1009,7 @@ function App() {
                   } else {
                     setBusqueda("");
                     setFiltroStock("todos");
+                    setFiltroCategoria("todas");
                   }
                 }}
               >
@@ -918,106 +1019,16 @@ function App() {
 
           ) : (
 
-            productosFiltrados.map(
-              (producto) => {
-
-                const imagen =
-                  obtenerImagen(
-                    producto.nombre
-                  );
-
-                return (
-                  <article
-                    className="producto"
-                    key={
-                      producto.id_producto
-                    }
-                  >
-
-                    {/* IMAGEN */}
-
-                    <div className="producto-imagen">
-
-                      {imagen ? (
-
-                        <img
-                          src={imagen}
-                          alt={
-                            producto.nombre
-                          }
-                        />
-
-                      ) : (
-
-                        <div className="icono-producto">
-                          {obtenerIcono(
-                            producto.nombre
-                          )}
-                        </div>
-
-                      )}
-
-                    </div>
-
-                    {/* INFORMACIÓN */}
-
-                    <div className="producto-info">
-
-                      <div className="producto-categoria">
-                        Categoría #{producto.id_categoria}
-                      </div>
-
-                      <h3>
-                        {producto.nombre}
-                      </h3>
-
-                      <div className="precio">
-                        {formatoPrecio(
-                          producto.precio
-                        )}
-                      </div>
-
-                      <div className={`stock ${Number(producto.stock) === 0 ? "stock-agotado" : ""}`}>
-                        <span className="punto-stock">●</span>
-                        {Number(producto.stock) === 0
-                          ? "Agotado"
-                          : `${producto.stock} unidades disponibles`}
-                      </div>
-
-                      {/* ACCIONES ADMINISTRATIVAS */}
-
-                      <div className="acciones-producto">
-
-                        <button
-                          className="boton-editar"
-                          onClick={() =>
-                            editarProducto(
-                              producto
-                            )
-                          }
-                        >
-                          ✏️ Editar
-                        </button>
-
-                        <button
-                          className="boton-eliminar"
-                          onClick={() =>
-                            eliminarProducto(
-                              producto.id_producto
-                            )
-                          }
-                        >
-                          🗑️ Eliminar
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  </article>
-                );
-              }
-            )
+            productosFiltrados.map((producto) => (
+              <ProductCard
+                key={producto.id_producto}
+                producto={producto}
+                umbralStockBajo={UMBRAL_STOCK_BAJO}
+                formatoPrecio={formatoPrecio}
+                onEdit={editarProducto}
+                onDelete={eliminarProducto}
+              />
+            ))
 
           )}
 
@@ -1202,7 +1213,7 @@ function App() {
 
         <div className="logo">
           Distribuciones{" "}
-          <span>de la Sabana</span>
+          <span>Tecnológicas de la Sabana</span>
         </div>
 
         <p>
@@ -1210,7 +1221,7 @@ function App() {
         </p>
 
         <p>
-          © 2026 Distribuciones de la Sabana
+          © 2026 Distribuciones Tecnológicas de la Sabana
         </p>
 
       </footer>
