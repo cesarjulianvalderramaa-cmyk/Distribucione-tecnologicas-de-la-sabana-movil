@@ -7,7 +7,7 @@ from flask import Flask, current_app, jsonify, request, session
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from conexion import conectar
+from base_datos import conectar
 from usuarios import asegurar_tabla_usuarios
 
 app = Flask(__name__)

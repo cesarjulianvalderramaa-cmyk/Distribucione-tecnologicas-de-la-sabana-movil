@@ -16,7 +16,7 @@ Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está
 
 - Python 3 y MySQL.
 - Node.js y npm.
-- La base de datos `distribuciones_tecnologicas_sabana` creada y accesible desde la configuración de `conexion.py`.
+- La base de datos `distribuciones_tecnologicas_sabana` creada y accesible desde MySQL.
 - Los paquetes `Flask`, `flask-cors` y `mysql-connector-python` instalados.
 
 ## Ejecución local
@@ -27,13 +27,25 @@ Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está
    python -m pip install Flask flask-cors mysql-connector-python
    ```
 
-2. El registro desde la pantalla crea la tabla `Usuario` si todavía no existe. Si prefieres crear una cuenta inicial desde la terminal, ejecuta este comando; solicita la contraseña sin mostrarla y debe tener al menos 12 caracteres:
+2. Configura las credenciales de MySQL en esta terminal. El nombre de la base de datos tiene un valor predeterminado; cambia las variables si tu instalación usa otros datos:
+
+   ```powershell
+   $env:MYSQL_HOST = "localhost"
+   $env:MYSQL_PORT = "3306"
+   $env:MYSQL_USER = "root"
+   $env:MYSQL_PASSWORD = "tu-clave-de-MySQL"
+   $env:MYSQL_DATABASE = "distribuciones_tecnologicas_sabana"
+   ```
+
+   No subas ni compartas la contraseña. En el checkout original, si existe un `conexion.py` local, la aplicación conserva esa conexión local; ese archivo se excluye del repositorio para proteger sus credenciales.
+
+3. El registro desde la pantalla crea la tabla `Usuario` si todavía no existe. Si prefieres crear una cuenta inicial desde la terminal, ejecuta este comando; solicita la contraseña sin mostrarla y debe tener al menos 12 caracteres:
 
    ```powershell
    python crear_usuario.py
    ```
 
-3. En una terminal, define una clave secreta nueva para firmar las sesiones e inicia la API desde la carpeta raíz:
+4. En la terminal donde ejecutarás Flask, define una clave secreta nueva para firmar las sesiones e inicia la API desde la carpeta raíz:
 
    ```powershell
    $env:FLASK_SECRET_KEY = (python -c "import secrets; print(secrets.token_hex(32))")
@@ -42,7 +54,7 @@ Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está
 
    Flask queda disponible en `http://127.0.0.1:5000`. Conserva la clave en un lugar seguro y usa la misma mientras el servidor siga activo. Si reinicias Flask, puedes definir una clave nueva; las sesiones anteriores dejarán de ser válidas.
 
-4. En otra terminal, inicia el front-end:
+5. En otra terminal, inicia el front-end:
 
    ```powershell
    cd frontend-react
@@ -50,7 +62,7 @@ Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está
    npm run dev
    ```
 
-5. Abre la dirección local que muestra Vite en la terminal. Puedes crear una cuenta desde **Regístrate** o iniciar sesión con una cuenta existente. Durante el desarrollo, Vite redirige las solicitudes `/api` a Flask.
+6. Abre la dirección local que muestra Vite en la terminal. Puedes crear una cuenta desde **Regístrate** o iniciar sesión con una cuenta existente. Durante el desarrollo, Vite redirige las solicitudes `/api` a Flask. Si Flask corre en una terminal diferente, configura también ahí las variables `MYSQL_*` indicadas arriba.
 
 Los nombres de usuario aceptan de 3 a 50 letras, números, puntos, guiones o guion bajo. Las contraseñas deben tener entre 12 y 128 caracteres y se guardan como hashes. El registro público permite a cada cuenta administrar el inventario. Si el front-end y la API se despliegan en orígenes distintos, configura `VITE_API_URL` con la URL completa del endpoint `/api/productos` y agrega el origen exacto del front-end a `CORS_ALLOWED_ORIGINS` (separados por comas). Para una integración entre sitios distintos, configura también `SESSION_COOKIE_SAMESITE=None` y `SESSION_COOKIE_SECURE=true`, y usa HTTPS. En producción, usa una clave secreta persistente y no ejecutes el servidor Flask de depuración como servidor de producción.
 

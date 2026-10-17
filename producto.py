@@ -1,4 +1,4 @@
-from conexion import conectar
+from base_datos import conectar
 
 
 def crear_producto(nombre, precio, stock, id_categoria):

@@ -3,7 +3,7 @@ import re
 
 from werkzeug.security import generate_password_hash
 
-from conexion import conectar
+from base_datos import conectar
 from usuarios import asegurar_tabla_usuarios
 
 
