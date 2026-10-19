@@ -69,6 +69,7 @@ function App() {
   const [modoDemo, setModoDemo] = useState(false);
   const [comprobandoSesion, setComprobandoSesion] = useState(true);
   const [usuarioAcceso, setUsuarioAcceso] = useState("");
+  const [correoAcceso, setCorreoAcceso] = useState("");
   const [contrasenaAcceso, setContrasenaAcceso] = useState("");
   const [confirmarContrasena, setConfirmarContrasena] = useState("");
   const [modoAcceso, setModoAcceso] = useState("login");
@@ -177,6 +178,19 @@ function App() {
     setErrorAcceso("");
 
     if (
+      !usuarioAcceso.trim() ||
+      !contrasenaAcceso.trim() ||
+      (modoAcceso === "registro" && !correoAcceso.trim())
+    ) {
+      setErrorAcceso(
+        modoAcceso === "registro"
+          ? "Completa el usuario, el correo electrónico y la contraseña."
+          : "Completa el usuario o correo electrónico y la contraseña."
+      );
+      return;
+    }
+
+    if (
       modoAcceso === "registro" &&
       contrasenaAcceso !== confirmarContrasena
     ) {
@@ -195,6 +209,7 @@ function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             usuario: usuarioAcceso,
+            ...(modoAcceso === "registro" ? { correo: correoAcceso } : {}),
             contrasena: contrasenaAcceso,
           }),
         }
@@ -554,6 +569,8 @@ function App() {
         manejarAcceso={manejarAcceso}
         usuarioAcceso={usuarioAcceso}
         setUsuarioAcceso={setUsuarioAcceso}
+        correoAcceso={correoAcceso}
+        setCorreoAcceso={setCorreoAcceso}
         contrasenaAcceso={contrasenaAcceso}
         setContrasenaAcceso={setContrasenaAcceso}
         confirmarContrasena={confirmarContrasena}

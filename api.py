@@ -8,7 +8,7 @@ from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from base_datos import conectar
-from usuarios import asegurar_tabla_usuarios
+from usuarios import asegurar_tabla_usuarios, normalizar_correo
 
 app = Flask(__name__)
 app.config.update(
@@ -56,12 +56,19 @@ def iniciar_sesion():
 
     datos = request.get_json(silent=True)
     if not isinstance(datos, dict):
-        return jsonify({"error": "Debes enviar usuario y contraseña."}), 400
+        return jsonify({
+            "error": "Debes enviar usuario o correo electrónico y contraseña."
+        }), 400
 
-    usuario = datos.get("usuario")
+    identificador = datos.get("usuario")
     contrasena = datos.get("contrasena")
-    if not isinstance(usuario, str) or not isinstance(contrasena, str):
-        return jsonify({"error": "Debes enviar usuario y contraseña."}), 400
+    if (
+        not isinstance(identificador, str)
+        or not identificador.strip()
+        or not isinstance(contrasena, str)
+        or not contrasena.strip()
+    ):
+        return jsonify({"error": "Debes enviar usuario o correo electrónico y contraseña."}), 400
 
     conexion = conectar()
     if not conexion:
@@ -70,13 +77,14 @@ def iniciar_sesion():
     cursor = None
     try:
         cursor = conexion.cursor(dictionary=True)
+        asegurar_tabla_usuarios(cursor)
         cursor.execute(
             """
             SELECT id_usuario, usuario, contrasena_hash
             FROM Usuario
-            WHERE usuario = %s
+            WHERE usuario = %s OR correo = %s
             """,
-            (usuario.strip().lower(),),
+            (identificador.strip().lower(), identificador.strip().lower()),
         )
         registro = cursor.fetchone()
 
@@ -105,18 +113,34 @@ def registrar_usuario():
 
     datos = request.get_json(silent=True)
     if not isinstance(datos, dict):
-        return jsonify({"error": "Debes enviar usuario y contraseña."}), 400
+        return jsonify({
+            "error": "Debes enviar usuario, correo electrónico y contraseña."
+        }), 400
 
     usuario = datos.get("usuario")
+    correo = datos.get("correo")
     contrasena = datos.get("contrasena")
-    if not isinstance(usuario, str) or not isinstance(contrasena, str):
-        return jsonify({"error": "Debes enviar usuario y contraseña."}), 400
+    if (
+        not isinstance(usuario, str)
+        or not usuario.strip()
+        or not isinstance(correo, str)
+        or not correo.strip()
+        or not isinstance(contrasena, str)
+        or not contrasena.strip()
+    ):
+        return jsonify({
+            "error": "Debes enviar usuario, correo electrónico y contraseña."
+        }), 400
 
     usuario = usuario.strip().lower()
     if not re.fullmatch(r"[a-z0-9._-]{3,50}", usuario):
         return jsonify({
             "error": "El usuario debe tener entre 3 y 50 caracteres: letras, números, punto, guion o guion bajo."
         }), 400
+    try:
+        correo = normalizar_correo(correo)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
     if len(contrasena) < 12 or len(contrasena) > 128:
         return jsonify({
             "error": "La contraseña debe tener entre 12 y 128 caracteres."
@@ -132,10 +156,10 @@ def registrar_usuario():
         asegurar_tabla_usuarios(cursor)
         cursor.execute(
             """
-            INSERT INTO Usuario (usuario, contrasena_hash)
-            VALUES (%s, %s)
+            INSERT INTO Usuario (usuario, correo, contrasena_hash)
+            VALUES (%s, %s, %s)
             """,
-            (usuario, generate_password_hash(contrasena)),
+            (usuario, correo, generate_password_hash(contrasena)),
         )
         conexion.commit()
         usuario_id = cursor.lastrowid
@@ -148,7 +172,9 @@ def registrar_usuario():
     except Exception as error:
         conexion.rollback()
         if getattr(error, "errno", None) == 1062:
-            return jsonify({"error": "Ese nombre de usuario ya está registrado."}), 409
+            return jsonify({
+                "error": "Ese nombre de usuario o correo electrónico ya está registrado."
+            }), 409
         app.logger.exception("No se pudo registrar la cuenta.")
         return jsonify({"error": "No se pudo registrar la cuenta."}), 500
     finally:

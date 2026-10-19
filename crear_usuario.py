@@ -4,7 +4,7 @@ import re
 from werkzeug.security import generate_password_hash
 
 from base_datos import conectar
-from usuarios import asegurar_tabla_usuarios
+from usuarios import asegurar_tabla_usuarios, normalizar_correo
 
 
 def crear_usuario():
@@ -14,9 +14,10 @@ def crear_usuario():
             "El usuario debe tener entre 3 y 50 caracteres: letras, números, punto, guion o guion bajo."
         )
 
+    correo = normalizar_correo(input("Correo electrónico: "))
     contrasena = getpass.getpass("Contraseña (mínimo 12 caracteres): ")
     confirmacion = getpass.getpass("Confirma la contraseña: ")
-    if len(contrasena) < 12:
+    if not contrasena.strip() or len(contrasena) < 12:
         raise ValueError("La contraseña debe tener al menos 12 caracteres.")
     if contrasena != confirmacion:
         raise ValueError("Las contraseñas no coinciden.")
@@ -30,8 +31,11 @@ def crear_usuario():
         cursor = conexion.cursor()
         asegurar_tabla_usuarios(cursor)
         cursor.execute(
-            "INSERT INTO Usuario (usuario, contrasena_hash) VALUES (%s, %s)",
-            (usuario, generate_password_hash(contrasena)),
+            """
+            INSERT INTO Usuario (usuario, correo, contrasena_hash)
+            VALUES (%s, %s, %s)
+            """,
+            (usuario, correo, generate_password_hash(contrasena)),
         )
         conexion.commit()
         print(f"Usuario '{usuario}' creado correctamente.")

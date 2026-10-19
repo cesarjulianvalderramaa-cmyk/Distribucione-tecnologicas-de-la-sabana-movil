@@ -10,7 +10,8 @@ Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está
 - Resumen del inventario: productos registrados, unidades disponibles, productos agotados y existencias bajas.
 - Crear, editar y eliminar productos con validaciones y confirmación de borrado.
 - Descargar un reporte básico del inventario en formato CSV.
-- Inicio de sesión y registro de cuentas; la API valida la sesión antes de permitir cualquier operación del inventario.
+- Registro de cuentas con nombre de usuario y correo electrónico, validación de campos obligatorios y credenciales protegidas con hashes.
+- Inicio de sesión con nombre de usuario o correo electrónico y contraseña; la API valida la sesión antes de permitir cualquier operación del inventario.
 - Modo de demostración opcional con productos ficticios claramente identificados; los cambios se conservan solo en memoria y nunca se envían a Flask/MySQL.
 - Estados de carga, mensajes de resultado y avisos cuando no se puede conectar con la API.
 - Diseño adaptable a computadores, tabletas y celulares, con navegación compacta en pantallas pequeñas.
@@ -52,7 +53,7 @@ Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está
 
    No subas ni compartas la contraseña. En el checkout original, si existe un `conexion.py` local, la aplicación conserva esa conexión local; ese archivo se excluye del repositorio para proteger sus credenciales.
 
-3. El registro desde la pantalla crea la tabla `Usuario` si todavía no existe. Si prefieres crear una cuenta inicial desde la terminal, ejecuta este comando; solicita la contraseña sin mostrarla y debe tener al menos 12 caracteres:
+3. El registro desde la pantalla solicita un nombre de usuario, correo electrónico y contraseña, crea la tabla `Usuario` si todavía no existe y migra la tabla existente para añadir el correo. Si prefieres crear una cuenta inicial desde la terminal, ejecuta este comando; solicita el correo y la contraseña (sin mostrarla), que debe tener al menos 12 caracteres:
 
    ```powershell
    python crear_usuario.py
@@ -77,15 +78,15 @@ Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está
 
 6. Abre la dirección local que muestra Vite en la terminal. Puedes crear una cuenta desde **Regístrate** o iniciar sesión con una cuenta existente. Durante el desarrollo, Vite redirige las solicitudes `/api` a Flask. Si Flask corre en una terminal diferente, configura también ahí las variables `MYSQL_*` indicadas arriba.
 
-Los nombres de usuario aceptan de 3 a 50 letras, números, puntos, guiones o guion bajo. Las contraseñas deben tener entre 12 y 128 caracteres y se guardan como hashes. El registro público permite a cada cuenta administrar el inventario. Si el front-end y la API se despliegan en orígenes distintos, configura `VITE_API_URL` con la URL completa del endpoint `/api/productos` y agrega el origen exacto del front-end a `CORS_ALLOWED_ORIGINS` (separados por comas). Para una integración entre sitios distintos, configura también `SESSION_COOKIE_SAMESITE=None` y `SESSION_COOKIE_SECURE=true`, y usa HTTPS. En producción, usa una clave secreta persistente y no ejecutes el servidor Flask de depuración como servidor de producción.
+Los nombres de usuario aceptan de 3 a 50 letras, números, puntos, guiones o guion bajo. El correo debe tener formato válido y ser único. Las contraseñas deben tener entre 12 y 128 caracteres y se guardan como hashes. El registro público permite a cada cuenta administrar el inventario. Si el front-end y la API se despliegan en orígenes distintos, configura `VITE_API_URL` con la URL completa del endpoint `/api/productos` y agrega el origen exacto del front-end a `CORS_ALLOWED_ORIGINS` (separados por comas). Para una integración entre sitios distintos, configura también `SESSION_COOKIE_SAMESITE=None` y `SESSION_COOKIE_SECURE=true`, y usa HTTPS. En producción, usa una clave secreta persistente y no ejecutes el servidor Flask de depuración como servidor de producción.
 
 ## Verificación de la evidencia
 
 Con MySQL y Flask activos, abre la aplicación y comprueba:
 
 1. Que sin iniciar sesión no se pueda consultar ni modificar el inventario.
-2. Que la cuenta válida permita entrar y una contraseña incorrecta muestre un error.
-3. Que el registro cree una cuenta y permita entrar; prueba también un usuario duplicado y contraseñas que no coinciden.
+2. Que la cuenta válida permita entrar tanto con su nombre de usuario como con su correo; una contraseña incorrecta debe mostrar un error.
+3. Que el registro exija un nombre de usuario, correo válido y contraseña; prueba también un correo inválido, un usuario o correo duplicado y contraseñas que no coinciden.
 4. Que cerrar sesión vuelva a la pantalla de acceso y bloquee las operaciones del inventario.
 5. Que el resumen y el catálogo correspondan con los productos de la base de datos.
 6. La búsqueda por nombre o código, el filtro por categoría y los filtros de disponibilidad.

@@ -6,6 +6,8 @@ function AuthScreen({
   manejarAcceso,
   usuarioAcceso,
   setUsuarioAcceso,
+  correoAcceso,
+  setCorreoAcceso,
   contrasenaAcceso,
   setContrasenaAcceso,
   confirmarContrasena,
@@ -40,16 +42,22 @@ function AuthScreen({
 
         <form className="auth-formulario" onSubmit={manejarAcceso}>
           <div className="campo">
-            <label htmlFor="usuario-acceso">Nombre de usuario</label>
+            <label htmlFor="usuario-acceso">
+              {modoAcceso === "registro" ? "Nombre de usuario" : "Usuario o correo electrónico"}
+            </label>
             <input
               autoComplete="username"
               id="usuario-acceso"
-              maxLength={50}
-              minLength={3}
+              maxLength={modoAcceso === "registro" ? 50 : 254}
+              minLength={modoAcceso === "registro" ? 3 : undefined}
               name="usuario"
               onChange={(e) => setUsuarioAcceso(e.target.value)}
-              pattern="[A-Za-z0-9._\-]+"
-              placeholder="Ej. cesar.sabana"
+              pattern={modoAcceso === "registro" ? "[A-Za-z0-9._\\-]+" : undefined}
+              placeholder={
+                modoAcceso === "registro"
+                  ? "Ej. cesar.sabana"
+                  : "Ej. cesar.sabana o cesar@correo.com"
+              }
               required
               value={usuarioAcceso}
             />
@@ -57,6 +65,22 @@ function AuthScreen({
               <small>Usa de 3 a 50 letras, números, puntos, guiones o guion bajo.</small>
             )}
           </div>
+          {modoAcceso === "registro" && (
+            <div className="campo">
+              <label htmlFor="correo-acceso">Correo electrónico</label>
+              <input
+                autoComplete="email"
+                id="correo-acceso"
+                maxLength={254}
+                name="correo"
+                onChange={(e) => setCorreoAcceso(e.target.value)}
+                placeholder="Ej. cesar@correo.com"
+                required
+                type="email"
+                value={correoAcceso}
+              />
+            </div>
+          )}
           <div className="campo">
             <label htmlFor="contrasena-acceso">Contraseña</label>
             <input
