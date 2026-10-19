@@ -15,6 +15,16 @@ Aplicación web para la evidencia **GA7-220501096-AA4-EV03**. El front-end está
 - Estados de carga, mensajes de resultado y avisos cuando no se puede conectar con la API.
 - Diseño adaptable a computadores, tabletas y celulares, con navegación compacta en pantallas pequeñas.
 
+## Organización del frontend
+
+`src/App.jsx` coordina el estado de la sesión y del inventario, las operaciones con la API y las acciones de los usuarios. La interfaz se distribuye en componentes reutilizables dentro de `src/components/`:
+
+- `AuthScreen.jsx`: inicio de sesión, registro y acceso a la demostración.
+- `AppHeader.jsx`, `HeroSection.jsx` y `AppFooter.jsx`: estructura y navegación de la aplicación.
+- `InventorySection.jsx`: resumen, búsqueda, filtros, mensajes y catálogo de productos.
+- `ProductForm.jsx`: formulario para crear y editar productos.
+- `InventorySummary.jsx` y `ProductCard.jsx`: indicadores del inventario y tarjeta individual de producto.
+
 ## Requisitos
 
 - Python 3 y MySQL.

@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import InventorySummary from "./components/InventorySummary.jsx";
-import ProductCard from "./components/ProductCard.jsx";
+import AppFooter from "./components/AppFooter.jsx";
+import AppHeader from "./components/AppHeader.jsx";
+import AuthScreen from "./components/AuthScreen.jsx";
+import HeroSection from "./components/HeroSection.jsx";
+import InventorySection from "./components/InventorySection.jsx";
+import ProductForm from "./components/ProductForm.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api/productos";
 const AUTH_URL = API_URL.replace(/\/productos\/?$/, "/auth");
@@ -542,132 +546,23 @@ function App() {
 
   if (!usuarioActual && !modoDemo) {
     return (
-      <main className="auth-shell">
-        <section className="auth-card">
-          <div className="auth-identidad">
-            <span className="auth-marca">DS</span>
-            <div>
-              <strong>Distribuciones</strong>
-              <span>Tecnológicas de la Sabana</span>
-            </div>
-          </div>
-
-          <p className="auth-etiqueta">SISTEMA DE INVENTARIO</p>
-          <h1>{modoAcceso === "registro" ? "Crear cuenta" : "Iniciar sesión"}</h1>
-          <p className="auth-descripcion">
-            {modoAcceso === "registro"
-              ? "Regístrate para acceder y administrar el inventario."
-              : "Ingresa tus credenciales para administrar el inventario."}
-          </p>
-
-          {errorAcceso && (
-            <div className="error auth-error" role="alert">
-              ⚠️ {errorAcceso}
-            </div>
-          )}
-
-          <form className="auth-formulario" onSubmit={manejarAcceso}>
-            <div className="campo">
-              <label htmlFor="usuario-acceso">Nombre de usuario</label>
-              <input
-                autoComplete="username"
-                id="usuario-acceso"
-                maxLength={50}
-                minLength={3}
-                name="usuario"
-                onChange={(e) => setUsuarioAcceso(e.target.value)}
-                pattern="[A-Za-z0-9._\-]+"
-                placeholder="Ej. cesar.sabana"
-                required
-                value={usuarioAcceso}
-              />
-              {modoAcceso === "registro" && (
-                <small>Usa de 3 a 50 letras, números, puntos, guiones o guion bajo.</small>
-              )}
-            </div>
-            <div className="campo">
-              <label htmlFor="contrasena-acceso">Contraseña</label>
-              <input
-                autoComplete={modoAcceso === "registro" ? "new-password" : "current-password"}
-                id="contrasena-acceso"
-                maxLength={128}
-                name="contrasena"
-                minLength={modoAcceso === "registro" ? 12 : undefined}
-                onChange={(e) => setContrasenaAcceso(e.target.value)}
-                placeholder={modoAcceso === "registro" ? "Mínimo 12 caracteres" : ""}
-                required
-                type="password"
-                value={contrasenaAcceso}
-              />
-            </div>
-            {modoAcceso === "registro" && (
-              <div className="campo">
-                <label htmlFor="confirmar-contrasena">Confirmar contraseña</label>
-                <input
-                  autoComplete="new-password"
-                  id="confirmar-contrasena"
-                  maxLength={128}
-                  minLength={12}
-                  name="confirmar-contrasena"
-                  onChange={(e) => setConfirmarContrasena(e.target.value)}
-                  required
-                  type="password"
-                  value={confirmarContrasena}
-                />
-              </div>
-            )}
-            <button
-              className="boton-principal auth-submit"
-              disabled={iniciandoSesion}
-              type="submit"
-            >
-              {iniciandoSesion
-                ? modoAcceso === "registro"
-                  ? "Creando cuenta..."
-                  : "Validando..."
-                : modoAcceso === "registro"
-                  ? "Crear cuenta"
-                  : "Ingresar"}
-            </button>
-          </form>
-          <p className="auth-ayuda">
-            {modoAcceso === "registro" ? "¿Ya tienes cuenta?" : "¿Aún no tienes cuenta?"}{" "}
-            <button
-              className="auth-cambiar-modo"
-              onClick={() => {
-                setModoAcceso((modoActual) =>
-                  modoActual === "registro" ? "login" : "registro"
-                );
-                setErrorAcceso("");
-                setContrasenaAcceso("");
-                setConfirmarContrasena("");
-              }}
-              type="button"
-            >
-              {modoAcceso === "registro" ? "Inicia sesión" : "Regístrate"}
-            </button>
-          </p>
-          {modoAcceso === "login" && (
-            <div className="demo-acceso">
-              <p>¿Solo quieres explorar la interfaz?</p>
-              <button
-                className="boton-demostracion"
-                onClick={iniciarDemostracion}
-                type="button"
-              >
-                Probar demostración con datos ficticios
-              </button>
-              <small>Los cambios se mantienen solo mientras esta pestaña está abierta y no se guardan en MySQL.</small>
-            </div>
-          )}
-        </section>
-      </main>
+      <AuthScreen
+        modoAcceso={modoAcceso}
+        setModoAcceso={setModoAcceso}
+        errorAcceso={errorAcceso}
+        setErrorAcceso={setErrorAcceso}
+        manejarAcceso={manejarAcceso}
+        usuarioAcceso={usuarioAcceso}
+        setUsuarioAcceso={setUsuarioAcceso}
+        contrasenaAcceso={contrasenaAcceso}
+        setContrasenaAcceso={setContrasenaAcceso}
+        confirmarContrasena={confirmarContrasena}
+        setConfirmarContrasena={setConfirmarContrasena}
+        iniciandoSesion={iniciandoSesion}
+        iniciarDemostracion={iniciarDemostracion}
+      />
     );
   }
-
-  // ================================
-  // INTERFAZ
-  // ================================
 
   return (
     <div className="tienda">
@@ -676,555 +571,65 @@ function App() {
           ENCABEZADO
       ================================= */}
 
-      <header className="encabezado">
-
-        <div className="logo marca-empresa">
-          <span className="marca-iniciales" aria-hidden="true">DS</span>
-          <span className="marca-nombre">
-            Distribuciones
-            <strong>Tecnológicas de la Sabana</strong>
-          </span>
-        </div>
-
-        <button
-          aria-expanded={menuMovilAbierto}
-          aria-controls="navegacion-principal"
-          aria-label={menuMovilAbierto ? "Cerrar menú" : "Abrir menú"}
-          className="boton-menu-movil"
-          onClick={() => setMenuMovilAbierto((abierto) => !abierto)}
-          type="button"
-        >
-          <span aria-hidden="true">{menuMovilAbierto ? "✕" : "☰"}</span>
-          <span>Menú</span>
-        </button>
-
-        <nav
-          aria-label="Navegación principal"
-          className={`menu ${menuMovilAbierto ? "menu-abierto" : ""}`}
-          id="navegacion-principal"
-        >
-          <button
-            onClick={() => {
-              window.scrollTo({
-                top: 0,
-                behavior: "smooth",
-              });
-              setMenuMovilAbierto(false);
-            }}
-            type="button"
-          >
-            Inicio
-          </button>
-
-          <button
-            onClick={() => {
-              document
-                .getElementById("productos")
-                ?.scrollIntoView({
-                  behavior: "smooth",
-                });
-              setMenuMovilAbierto(false);
-            }}
-            type="button"
-          >
-            Productos
-          </button>
-
-          <button
-            onClick={() => {
-              document
-                .getElementById("administracion")
-                ?.scrollIntoView({
-                  behavior: "smooth",
-                });
-              setMenuMovilAbierto(false);
-            }}
-            type="button"
-          >
-            Administración
-          </button>
-        </nav>
-
-        <div className="acciones-sesion">
-          <span className="saludo-usuario">
-            {modoDemo ? "Modo de demostración" : `Hola, ${usuarioActual}`}
-          </span>
-          <button
-            className="boton-nuevo-producto"
-            type="button"
-            onClick={() =>
-              document
-                .getElementById("administracion")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-          >
-            + Nuevo producto
-          </button>
-          <button className="boton-cerrar-sesion" onClick={manejarCierreSesion} type="button">
-            {modoDemo ? "Salir de demostración" : "Cerrar sesión"}
-          </button>
-        </div>
-
-      </header>
+      <AppHeader
+        menuAbierto={menuMovilAbierto}
+        setMenuAbierto={setMenuMovilAbierto}
+        usuarioActual={usuarioActual}
+        modoDemo={modoDemo}
+        onLogout={manejarCierreSesion}
+      />
 
       {/* =================================
           HERO
       ================================= */}
 
-      <section className="hero">
-
-        <div className="hero-texto">
-
-          <p className="hero-etiqueta">
-          SISTEMA DE INVENTARIO
-          </p>
-
-          <h1>Gestiona el inventario de la Sabana</h1>
-
-          <p>
-            Administra el catálogo de productos de Distribuciones Tecnológicas de la Sabana
-            desde un solo lugar.
-          </p>
-
-          <button
-            className="boton-hero"
-            onClick={() =>
-              document
-                .getElementById("productos")
-                ?.scrollIntoView({
-                  behavior: "smooth",
-                })
-            }
-          >
-            Ver inventario →
-          </button>
-
-        </div>
-
-        <div className="hero-producto">
-
-          <div className="hero-circulo">
-            💻
-          </div>
-
-        </div>
-
-      </section>
+      <HeroSection />
 
       {/* =================================
           CONTENIDO
       ================================= */}
 
       <main className="contenido">
-
-        {modoDemo && (
-          <div className="banner-demostracion" role="status">
-            <strong>MODO DEMOSTRACIÓN · DATOS FICTICIOS</strong>
-            <span>Los registros y cambios de esta sesión no se envían ni se guardan en el backend.</span>
-          </div>
-        )}
-
-        <InventorySummary
-          totalProductos={productos.length}
+        <InventorySection
+          modoDemo={modoDemo}
+          productos={productos}
           unidadesInventario={unidadesInventario}
           productosAgotados={productosAgotados}
           productosStockBajo={productosStockBajo}
           umbralStockBajo={UMBRAL_STOCK_BAJO}
-          inventarioDisponible={modoDemo || !(error && productos.length === 0)}
+          error={error}
+          cargando={cargando}
+          productosFiltrados={productosFiltrados}
+          categorias={categorias}
+          filtroStock={filtroStock}
+          setFiltroStock={setFiltroStock}
+          filtroCategoria={filtroCategoria}
+          setFiltroCategoria={setFiltroCategoria}
+          busqueda={busqueda}
+          setBusqueda={setBusqueda}
+          mensaje={mensaje}
+          setCargando={setCargando}
+          cargarProductos={cargarProductos}
+          formatoPrecio={formatoPrecio}
+          editarProducto={editarProducto}
+          eliminarProducto={eliminarProducto}
+          descargarReporte={descargarReporte}
         />
-
-        {/* TÍTULO */}
-
-        <div className="encabezado-productos">
-
-          <div>
-            <p className="subtitulo">
-              CATÁLOGO
-            </p>
-
-            <h2 className="titulo-seccion">
-              Nuestros productos
-            </h2>
-            <button
-              className="boton-reporte"
-              disabled={productos.length === 0}
-              onClick={descargarReporte}
-              type="button"
-            >
-              Descargar reporte CSV
-            </button>
-          </div>
-
-          <p className="contador-productos">
-            {error && productos.length === 0
-              ? "Inventario no disponible"
-              : `${productosFiltrados.length} de ${productos.length} producto(s)`}
-          </p>
-
-        </div>
-
-        {/* =================================
-            BUSCADOR
-        ================================= */}
-
-        <div className="contenedor-buscador">
-
-          <span aria-hidden="true">⌕</span>
-
-          <input
-            className="buscador"
-            type="text"
-            aria-label="Buscar productos por nombre o código"
-            placeholder="Buscar por nombre o código..."
-            value={busqueda}
-            onChange={(e) =>
-              setBusqueda(e.target.value)
-            }
-          />
-
-          {busqueda && (
-            <button
-              className="limpiar-busqueda"
-              onClick={() => setBusqueda("")}
-            >
-              ✕
-            </button>
-          )}
-
-        </div>
-
-        {/* =================================
-            FILTRAR POR STOCK
-        ================================= */}
-
-        <div className="filtros-inventario">
-          <div className="categorias" aria-label="Filtrar por disponibilidad">
-
-          <button
-            className={`categoria ${filtroStock === "todos" ? "activa" : ""}`}
-            aria-pressed={filtroStock === "todos"}
-            onClick={() => setFiltroStock("todos")}
-          >
-            Todos
-          </button>
-
-          <button
-            className={`categoria ${filtroStock === "disponibles" ? "activa" : ""}`}
-            aria-pressed={filtroStock === "disponibles"}
-            onClick={() => setFiltroStock("disponibles")}
-          >
-            Disponibles
-          </button>
-
-          <button
-            className={`categoria ${filtroStock === "agotados" ? "activa" : ""}`}
-            aria-pressed={filtroStock === "agotados"}
-            onClick={() => setFiltroStock("agotados")}
-          >
-            Agotados
-          </button>
-
-          <button
-            className={`categoria ${filtroStock === "bajos" ? "activa" : ""}`}
-            aria-pressed={filtroStock === "bajos"}
-            onClick={() => setFiltroStock("bajos")}
-            type="button"
-          >
-            Existencias bajas
-          </button>
-
-          </div>
-
-          <label className="filtro-categoria">
-            <span>Categoría</span>
-            <select
-              aria-label="Filtrar por categoría"
-              onChange={(e) => setFiltroCategoria(e.target.value)}
-              value={filtroCategoria}
-            >
-              <option value="todas">Todas las categorías</option>
-              {categorias.map((idCategoria) => (
-                <option key={idCategoria} value={idCategoria}>
-                  Categoría #{idCategoria}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {/* =================================
-            MENSAJES
-        ================================= */}
-
-        {mensaje && (
-          <div className="mensaje" role="status" aria-live="polite">
-            ✓ {mensaje}
-          </div>
-        )}
-
-        {error && (
-          <div className="error" role="alert">
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* =================================
-            PRODUCTOS
-        ================================= */}
-
-        <section
-          id="productos"
-          className="productos"
-        >
-
-          {cargando ? (
-            <div className="sin-productos" role="status">
-              <div>⏳</div>
-              <h3>Cargando inventario...</h3>
-              <p>Estamos consultando los productos registrados.</p>
-            </div>
-          ) : productosFiltrados.length === 0 ? (
-
-            <div className="sin-productos">
-              <div>{error ? "⚠️" : "📦"}</div>
-
-              <h3>
-                {error
-                  ? "No fue posible cargar el inventario"
-                  : "No encontramos productos"}
-              </h3>
-
-              <p>
-                {error
-                  ? "Verifica que la API de Flask esté activa e inténtalo de nuevo."
-                  : "Intenta con otro término de búsqueda o limpia los filtros."}
-              </p>
-
-              <button
-                className="boton-principal"
-                onClick={() => {
-                  if (error) {
-                    setCargando(true);
-                    cargarProductos();
-                  } else {
-                    setBusqueda("");
-                    setFiltroStock("todos");
-                    setFiltroCategoria("todas");
-                  }
-                }}
-              >
-                {error ? "Reintentar" : "Limpiar filtros"}
-              </button>
-            </div>
-
-          ) : (
-
-            productosFiltrados.map((producto) => (
-              <ProductCard
-                key={producto.id_producto}
-                producto={producto}
-                umbralStockBajo={UMBRAL_STOCK_BAJO}
-                formatoPrecio={formatoPrecio}
-                onEdit={editarProducto}
-                onDelete={eliminarProducto}
-              />
-            ))
-
-          )}
-
-        </section>
-
-        {/* =================================
-            ADMINISTRACIÓN
-        ================================= */}
-
-        <section
-          id="administracion"
-          className="administracion"
-        >
-
-          <div className="administracion-titulo">
-
-            <div>
-              <p className="subtitulo">
-                PANEL DE GESTIÓN
-              </p>
-
-              <h2>
-                Administración de productos
-              </h2>
-
-              <p>
-                Crea y actualiza los productos
-                almacenados en la base de datos.
-              </p>
-            </div>
-
-            <div className="icono-admin">
-              ⚙️
-            </div>
-
-          </div>
-
-          {/* FORMULARIO */}
-
-          <form
-            className="formulario"
-            onSubmit={manejarSubmit}
-          >
-
-            <div className="campo">
-
-              <label htmlFor="nombre">
-                Nombre del producto
-              </label>
-
-              <input
-                type="text"
-                id="nombre"
-                name="nombre"
-                placeholder="Ej. Mouse Logitech"
-                maxLength={100}
-                required
-                value={
-                  formulario.nombre
-                }
-                onChange={
-                  manejarCambio
-                }
-              />
-
-            </div>
-
-            <div className="campo">
-
-              <label htmlFor="precio">
-                Precio
-              </label>
-
-              <input
-                type="number"
-                id="precio"
-                name="precio"
-                placeholder="Ej. 85000"
-                min="1"
-                step="1"
-                required
-                value={
-                  formulario.precio
-                }
-                onChange={
-                  manejarCambio
-                }
-              />
-
-            </div>
-
-            <div className="campo">
-
-              <label htmlFor="stock">
-                Stock
-              </label>
-
-              <input
-                type="number"
-                id="stock"
-                name="stock"
-                placeholder="Ej. 20"
-                min="0"
-                step="1"
-                required
-                value={
-                  formulario.stock
-                }
-                onChange={
-                  manejarCambio
-                }
-              />
-
-            </div>
-
-            <div className="campo">
-
-              <label htmlFor="id_categoria">
-                ID de categoría
-              </label>
-
-              <input
-                type="number"
-                id="id_categoria"
-                name="id_categoria"
-                placeholder="Ej. 1"
-                min="1"
-                step="1"
-                required
-                value={
-                  formulario.id_categoria
-                }
-                onChange={
-                  manejarCambio
-                }
-              />
-              <small>Ingresa el ID de una categoría existente.</small>
-
-            </div>
-
-            <div className="botones-formulario">
-
-              <button
-                className="boton-principal"
-                type="submit"
-                disabled={guardando}
-              >
-                {guardando
-                  ? "Guardando..."
-                  : editando
-                  ? "✓ Actualizar producto"
-                  : "+ Crear producto"}
-              </button>
-
-              {editando && (
-
-                <button
-                  className="boton-cancelar"
-                  type="button"
-                  onClick={
-                    limpiarFormulario
-                  }
-                >
-                  Cancelar
-                </button>
-
-              )}
-
-            </div>
-
-          </form>
-
-        </section>
-
+        <ProductForm
+          formulario={formulario}
+          manejarCambio={manejarCambio}
+          manejarSubmit={manejarSubmit}
+          editando={editando}
+          guardando={guardando}
+          limpiarFormulario={limpiarFormulario}
+        />
       </main>
 
       {/* =================================
           PIE DE PÁGINA
       ================================= */}
 
-      <footer className="footer">
-
-        <div className="logo">
-          Distribuciones{" "}
-          <span>Tecnológicas de la Sabana</span>
-        </div>
-
-        <p>
-          Tecnología, calidad y servicio.
-        </p>
-
-        <p>
-          © 2026 Distribuciones Tecnológicas de la Sabana
-        </p>
-
-      </footer>
+      <AppFooter />
 
     </div>
   );
