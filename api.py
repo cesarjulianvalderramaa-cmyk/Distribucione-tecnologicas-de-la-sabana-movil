@@ -2,6 +2,7 @@ import os
 import re
 from datetime import timedelta
 from functools import wraps
+from math import isfinite
 
 from flask import Flask, current_app, jsonify, request, session
 from flask_cors import CORS
@@ -196,197 +197,183 @@ def cerrar_sesion():
     return jsonify({"mensaje": "Sesión cerrada correctamente."})
 
 
+def validar_datos_producto(datos):
+    if not isinstance(datos, dict):
+        return None, "Debes enviar los datos del producto en formato JSON."
+
+    nombre = datos.get("nombre")
+    precio = datos.get("precio")
+    stock = datos.get("stock")
+    id_categoria = datos.get("id_categoria")
+
+    if not isinstance(nombre, str) or not nombre.strip():
+        return None, "El nombre del producto es obligatorio."
+    nombre = nombre.strip()
+    if len(nombre) > 100:
+        return None, "El nombre del producto no puede superar 100 caracteres."
+
+    if (
+        isinstance(precio, bool)
+        or not isinstance(precio, (int, float))
+        or not isfinite(precio)
+        or precio <= 0
+    ):
+        return None, "El precio debe ser un número mayor que 0."
+
+    if isinstance(stock, bool) or not isinstance(stock, int) or stock < 0:
+        return None, "El stock debe ser un número entero igual o mayor que 0."
+
+    if (
+        isinstance(id_categoria, bool)
+        or not isinstance(id_categoria, int)
+        or id_categoria <= 0
+    ):
+        return None, "El ID de categoría debe ser un entero mayor que 0."
+
+    return (nombre, precio, stock, id_categoria), None
+
+
 @app.route("/api/productos", methods=["GET"])
 @requiere_inicio_sesion
 def obtener_productos():
-    conexion = conectar()
-
-    if not conexion:
-        return jsonify({"error": "No se pudo conectar a MySQL"}), 500
-
+    conexion = None
+    cursor = None
     try:
-        cursor = conexion.cursor(dictionary=True)
+        conexion = conectar()
+        if not conexion:
+            return jsonify({"error": "No se pudo conectar a MySQL."}), 500
 
+        cursor = conexion.cursor(dictionary=True)
         cursor.execute("""
             SELECT id_producto, nombre, precio, stock, id_categoria
             FROM Producto
         """)
-
-        productos = cursor.fetchall()
-
-        return jsonify(productos)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+        return jsonify(cursor.fetchall())
+    except Exception:
+        current_app.logger.exception("No se pudieron consultar los productos.")
+        return jsonify({"error": "No se pudieron consultar los productos."}), 500
     finally:
-        cursor.close()
-        conexion.close()
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
 @app.route("/api/productos", methods=["POST"])
 @requiere_inicio_sesion
 def crear_producto_api():
-    datos = request.json
+    valores, error = validar_datos_producto(request.get_json(silent=True))
+    if error:
+        return jsonify({"error": error}), 400
 
-    nombre = datos.get("nombre")
-    precio = datos.get("precio")
-    stock = datos.get("stock")
-    id_categoria = datos.get("id_categoria")
-
-    if not nombre or precio is None or stock is None or id_categoria is None:
-        return jsonify({
-            "error": "Todos los campos son obligatorios"
-        }), 400
-
-    conexion = conectar()
-
-    if not conexion:
-        return jsonify({
-            "error": "No se pudo conectar a MySQL"
-        }), 500
-
+    conexion = None
+    cursor = None
     try:
-        cursor = conexion.cursor()
+        conexion = conectar()
+        if not conexion:
+            return jsonify({"error": "No se pudo conectar a MySQL."}), 500
 
-        sql = """
+        cursor = conexion.cursor()
+        cursor.execute("""
             INSERT INTO Producto
             (nombre, precio, stock, id_categoria)
             VALUES (%s, %s, %s, %s)
-        """
-
-        valores = (
-            nombre,
-            precio,
-            stock,
-            id_categoria
-        )
-
-        cursor.execute(sql, valores)
+        """, valores)
         conexion.commit()
-
         return jsonify({
-            "mensaje": "Producto creado correctamente",
+            "mensaje": "Producto creado correctamente.",
             "id_producto": cursor.lastrowid
         }), 201
-
-    except Exception as e:
-        conexion.rollback()
-
-        return jsonify({
-            "error": str(e)
-        }), 500
-
+    except Exception:
+        if conexion:
+            conexion.rollback()
+        current_app.logger.exception("No se pudo crear el producto.")
+        return jsonify({"error": "No se pudo crear el producto."}), 500
     finally:
-        cursor.close()
-        conexion.close()
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 @app.route("/api/productos/<int:id_producto>", methods=["PUT"])
 @requiere_inicio_sesion
 def actualizar_producto_api(id_producto):
-    datos = request.json
+    if id_producto <= 0:
+        return jsonify({"error": "El ID del producto debe ser mayor que 0."}), 400
+    valores, error = validar_datos_producto(request.get_json(silent=True))
+    if error:
+        return jsonify({"error": error}), 400
 
-    nombre = datos.get("nombre")
-    precio = datos.get("precio")
-    stock = datos.get("stock")
-    id_categoria = datos.get("id_categoria")
-
-    if not nombre or precio is None or stock is None or id_categoria is None:
-        return jsonify({
-            "error": "Todos los campos son obligatorios"
-        }), 400
-
-    conexion = conectar()
-
-    if not conexion:
-        return jsonify({
-            "error": "No se pudo conectar a MySQL"
-        }), 500
-
+    conexion = None
+    cursor = None
     try:
-        cursor = conexion.cursor()
+        conexion = conectar()
+        if not conexion:
+            return jsonify({"error": "No se pudo conectar a MySQL."}), 500
 
-        sql = """
+        cursor = conexion.cursor()
+        cursor.execute("""
             UPDATE Producto
             SET nombre = %s,
                 precio = %s,
                 stock = %s,
                 id_categoria = %s
             WHERE id_producto = %s
-        """
-
-        valores = (
-            nombre,
-            precio,
-            stock,
-            id_categoria,
-            id_producto
-        )
-
-        cursor.execute(sql, valores)
+        """, (*valores, id_producto))
+        filas_afectadas = cursor.rowcount
+        if filas_afectadas == 0:
+            cursor.execute(
+                "SELECT 1 FROM Producto WHERE id_producto = %s",
+                (id_producto,),
+            )
+            if cursor.fetchone() is None:
+                return jsonify({"error": "Producto no encontrado."}), 404
         conexion.commit()
-
-        if cursor.rowcount == 0:
-            return jsonify({
-                "error": "Producto no encontrado"
-            }), 404
-
-        return jsonify({
-            "mensaje": "Producto actualizado correctamente"
-        })
-
-    except Exception as e:
-        conexion.rollback()
-
-        return jsonify({
-            "error": str(e)
-        }), 500
-
+        return jsonify({"mensaje": "Producto actualizado correctamente."})
+    except Exception:
+        if conexion:
+            conexion.rollback()
+        current_app.logger.exception("No se pudo actualizar el producto %s.", id_producto)
+        return jsonify({"error": "No se pudo actualizar el producto."}), 500
     finally:
-        cursor.close()
-        conexion.close()
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 
 @app.route("/api/productos/<int:id_producto>", methods=["DELETE"])
 @requiere_inicio_sesion
 def eliminar_producto_api(id_producto):
-    conexion = conectar()
+    if id_producto <= 0:
+        return jsonify({"error": "El ID del producto debe ser mayor que 0."}), 400
 
-    if not conexion:
-        return jsonify({
-            "error": "No se pudo conectar a MySQL"
-        }), 500
-
+    conexion = None
+    cursor = None
     try:
-        cursor = conexion.cursor()
+        conexion = conectar()
+        if not conexion:
+            return jsonify({"error": "No se pudo conectar a MySQL."}), 500
 
-        sql = """
+        cursor = conexion.cursor()
+        cursor.execute("""
             DELETE FROM Producto
             WHERE id_producto = %s
-        """
-
-        cursor.execute(sql, (id_producto,))
+        """, (id_producto,))
         conexion.commit()
-
         if cursor.rowcount == 0:
-            return jsonify({
-                "error": "Producto no encontrado"
-            }), 404
-
-        return jsonify({
-            "mensaje": "Producto eliminado correctamente"
-        })
-
-    except Exception as e:
-        conexion.rollback()
-
-        return jsonify({
-            "error": str(e)
-        }), 500
-
+            return jsonify({"error": "Producto no encontrado."}), 404
+        return jsonify({"mensaje": "Producto eliminado correctamente."})
+    except Exception:
+        if conexion:
+            conexion.rollback()
+        current_app.logger.exception("No se pudo eliminar el producto %s.", id_producto)
+        return jsonify({"error": "No se pudo eliminar el producto."}), 500
     finally:
-        cursor.close()
-        conexion.close()
+        if cursor:
+            cursor.close()
+        if conexion:
+            conexion.close()
 
 if __name__ == "__main__":
     modo_debug = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
