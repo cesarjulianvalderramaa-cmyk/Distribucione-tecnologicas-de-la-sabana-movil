@@ -157,7 +157,7 @@ function InventorySection({
             </h3>
             <p>
               {error
-                ? "Verifica que la API de Flask esté activa e inténtalo de nuevo."
+                ? "Verifica que la API de Node.js esté activa e inténtalo de nuevo."
                 : "Intenta con otro término de búsqueda o limpia los filtros."}
             </p>
             <button

@@ -22,7 +22,7 @@ const solicitarApi = async (url, opciones) => {
     return await fetch(url, opciones);
   } catch (error) {
     throw new Error(
-      "No se pudo conectar con Flask. Inicia la API con `python api.py` y vuelve a intentarlo.",
+      "No se pudo conectar con la API. Inicia Node.js con `npm start` desde la carpeta raíz y vuelve a intentarlo.",
       { cause: error }
     );
   }
@@ -31,7 +31,7 @@ const solicitarApi = async (url, opciones) => {
 const leerRespuesta = async (respuesta) => {
   if ([502, 503, 504].includes(respuesta.status)) {
     throw new Error(
-      "No se pudo conectar con Flask. Inicia la API con `python api.py` y vuelve a intentarlo."
+      "No se pudo conectar con la API. Inicia Node.js con `npm start` desde la carpeta raíz y vuelve a intentarlo."
     );
   }
 
@@ -81,6 +81,7 @@ function App() {
     precio: "",
     stock: "",
     id_categoria: "",
+    imagen: null,
   });
 
   const [editando, setEditando] = useState(null);
@@ -271,6 +272,32 @@ function App() {
     });
   };
 
+  const manejarSeleccionImagen = (archivo) => {
+    setError("");
+    if (!archivo) return;
+
+    const tiposPermitidos = ["image/jpeg", "image/png", "image/webp"];
+    if (!tiposPermitidos.includes(archivo.type)) {
+      setError("Selecciona una imagen JPG, PNG o WebP.");
+      return;
+    }
+    if (archivo.size > 2 * 1024 * 1024) {
+      setError("La imagen no puede superar 2 MB.");
+      return;
+    }
+
+    const lector = new FileReader();
+    lector.onload = () => {
+      if (typeof lector.result === "string") {
+        setFormulario((actual) => ({ ...actual, imagen: lector.result }));
+      } else {
+        setError("No fue posible leer la imagen seleccionada.");
+      }
+    };
+    lector.onerror = () => setError("No fue posible leer la imagen seleccionada.");
+    lector.readAsDataURL(archivo);
+  };
+
   // ================================
   // LIMPIAR FORMULARIO
   // ================================
@@ -281,6 +308,7 @@ function App() {
       precio: "",
       stock: "",
       id_categoria: "",
+      imagen: null,
     });
 
     setEditando(null);
@@ -335,6 +363,7 @@ function App() {
       precio,
       stock,
       id_categoria: idCategoria,
+      imagen: formulario.imagen,
     };
 
     setGuardando(true);
@@ -418,6 +447,7 @@ function App() {
       precio: producto.precio,
       stock: producto.stock,
       id_categoria: producto.id_categoria,
+      imagen: producto.imagen || null,
     });
 
     setMensaje("");
@@ -635,6 +665,7 @@ function App() {
         <ProductForm
           formulario={formulario}
           manejarCambio={manejarCambio}
+          manejarSeleccionImagen={manejarSeleccionImagen}
           manejarSubmit={manejarSubmit}
           editando={editando}
           guardando={guardando}

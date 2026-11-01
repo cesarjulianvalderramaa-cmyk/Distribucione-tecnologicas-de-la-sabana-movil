@@ -1,4 +1,12 @@
-function ProductForm({ formulario, manejarCambio, manejarSubmit, editando, guardando, limpiarFormulario }) {
+function ProductForm({
+  formulario,
+  manejarCambio,
+  manejarSeleccionImagen,
+  manejarSubmit,
+  editando,
+  guardando,
+  limpiarFormulario,
+}) {
   return (
     <section className="administracion" id="administracion">
       <div className="administracion-titulo">
@@ -69,6 +77,35 @@ function ProductForm({ formulario, manejarCambio, manejarSubmit, editando, guard
             value={formulario.id_categoria}
           />
           <small>Ingresa el ID de una categoría existente.</small>
+        </div>
+        <div className="campo campo-imagen">
+          <label htmlFor="imagen">Imagen del producto</label>
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            id="imagen"
+            onChange={(evento) => {
+              manejarSeleccionImagen(evento.target.files?.[0]);
+              evento.target.value = "";
+            }}
+            type="file"
+          />
+          <small>Elige una imagen JPG, PNG o WebP de máximo 2 MB.</small>
+          {formulario.imagen && (
+            <div className="vista-previa-imagen">
+              <img src={formulario.imagen} alt="Vista previa del producto" />
+              <button
+                className="boton-quitar-imagen"
+                onClick={() =>
+                  manejarCambio({
+                    target: { name: "imagen", value: null },
+                  })
+                }
+                type="button"
+              >
+                Quitar imagen
+              </button>
+            </div>
+          )}
         </div>
         <div className="botones-formulario">
           <button className="boton-principal" disabled={guardando} type="submit">

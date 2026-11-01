@@ -20,7 +20,7 @@ function obtenerIcono(nombre) {
 
 function ProductCard({ producto, umbralStockBajo, formatoPrecio, onEdit, onDelete }) {
   const stock = Number(producto.stock);
-  const imagen = obtenerImagen(producto.nombre);
+  const imagen = producto.imagen || obtenerImagen(producto.nombre);
   const agotado = stock === 0;
   const stockBajo = stock > 0 && stock <= umbralStockBajo;
 

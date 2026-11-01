@@ -819,6 +819,32 @@ button {
     );
 }
 
+.vista-previa-imagen {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 5px;
+}
+
+.vista-previa-imagen img {
+    width: 88px;
+    height: 72px;
+    object-fit: contain;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.boton-quitar-imagen {
+    padding: 8px 10px;
+    border: 1px solid #d9dee8;
+    border-radius: 8px;
+    background: white;
+    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 700;
+}
+
 /* =========================================
    INFORMACIÓN
 ========================================= */
@@ -1084,6 +1110,12 @@ button {
 
   box-shadow:
     0 0 0 3px rgba(41, 128, 185, 0.12);
+}
+
+.campo input[type="file"] {
+  padding: 9px;
+  background: #f8fafc;
+  font-size: 13px;
 }
 
 .campo small {
